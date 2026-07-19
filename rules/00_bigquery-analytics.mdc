@@ -1,7 +1,8 @@
 ---
 description: >-
   BigQuery Analytics center contract — dataset registry, durable service-account
-  access, query files, CSV results, and hosting-repo workspace boundaries.
+  access, query files, CSV results, local dataset schema cache, and hosting-repo
+  workspace boundaries.
 globs: "**/*"
 alwaysApply: true
 ---
@@ -55,6 +56,7 @@ datasets:
     localPath: <repo-relative-directory>
     queriesPath: <repo-relative-directory>/queries
     resultsPath: <repo-relative-directory>/results
+    dataSchemaPath: <repo-relative-directory>/data-schema  # optional; default
     serviceAccountEmail: <service-account-email>
     credentialsPath: <absolute-local-key-path>
     gcloudConfiguration: <isolated-config-name>
@@ -62,6 +64,7 @@ datasets:
 
 Agents must resolve the active dataset from this registry or structured user
 choice. Do not guess a project, dataset, region, local path, or service account.
+When `dataSchemaPath` is omitted, treat it as `<localPath>/data-schema`.
 
 ## Dataset workspace
 
@@ -69,18 +72,62 @@ Each configured dataset owns one hosting-repo directory:
 
 ```text
 <localPath>/
-  queries/   # reusable *.sql files; tracked unless hosting rules say otherwise
-  results/   # generated CSV files; gitignored
+  queries/       # reusable *.sql files; tracked unless hosting rules say otherwise
+  results/       # generated CSV files; gitignored
+  data-schema/   # persisted table/view schema JSON; tracked
 ```
 
 The configuration mission must:
 
-1. Create `queries/` and `results/`.
+1. Create `queries/`, `results/`, and `data-schema/`.
 2. Add `results/` to the hosting repo `.gitignore` idempotently.
 3. Keep SQL query files outside the ignored `results/` subtree.
-4. Write `.sedea/bigquery-analytics.yaml`, `.gitignore`, and any directory
-   placeholders in one hosting-repo worktree and PR.
-5. Never commit credentials or CSV exports.
+4. Keep `data-schema/` **tracked** — do not gitignore it.
+5. Write `.sedea/bigquery-analytics.yaml`, `.gitignore`, schema artifacts, and
+   any directory placeholders in one hosting-repo worktree and PR.
+6. Never commit credentials or CSV exports.
+
+## Dataset schema cache
+
+Query-construction agents **must** read the local schema cache before live
+BigQuery schema exploration (`bq show`, INFORMATION_SCHEMA probes, and similar).
+Live exploration is a fallback only when the cache is missing, empty for a
+non-empty dataset, or the user explicitly requests a refresh.
+
+### Where it lives
+
+| Path | Role |
+|------|------|
+| **`dataSchemaPath`** | Registry field; default `<localPath>/data-schema` |
+| **`_dataset.json`** | Dataset id, location, `fetchedAt`, table/view counts |
+| **`tables/<tableId>.json`** | Per-table columns (name, type, mode, description) |
+| **`views/<viewId>.json`** | Per-view columns plus view definition when available |
+
+```text
+<dataSchemaPath>/
+  _dataset.json
+  tables/
+    <tableId>.json
+  views/
+    <viewId>.json
+```
+
+### How it is written
+
+- **New Analytics Dataset Configuration** mission §6 fetches schema with `bq`
+  after the local workspace paths are confirmed, then §7 promotes the files in
+  the same hosting-repo PR as `queries/` / `results/` and the registry row.
+- Re-runs overwrite JSON for the same dataset binding.
+- Empty datasets write `_dataset.json` with `tableCount: 0` (and empty or
+  omitted `tables/` / `views/` trees).
+
+### How agents use it
+
+1. Resolve `dataSchemaPath` from the registry (or the default above).
+2. Read `_dataset.json` and the relevant `tables/` / `views/` files.
+3. Construct GoogleSQL against those column names and types.
+4. Only if the cache is insufficient: ask to refresh (re-run configuration §6)
+   or, with explicit user approval, probe BigQuery live.
 
 ## IAM baseline
 
@@ -117,7 +164,8 @@ default to project-wide `roles/bigquery.admin`.
 
 - Never print service-account private keys, credential JSON, access tokens, or
   refresh tokens.
-- Preview table metadata and schemas before querying unfamiliar data.
+- Prefer the local **Dataset schema cache** before live schema exploration;
+  preview live metadata only when the cache is missing or explicitly refreshed.
 - Confirm estimated bytes (`--dry_run`) before a potentially expensive query.
 - Do not mutate source tables unless the user explicitly requests and approves
   a write query.
