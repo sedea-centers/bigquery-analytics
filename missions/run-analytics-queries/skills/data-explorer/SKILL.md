@@ -3,6 +3,9 @@ name: Explore BigQuery data
 description: >-
   Help the user discover tables, schemas, previews, saved SQL, and useful query
   directions before handing an approved query intent to the Squad Leader.
+designation:
+  allowed: Explore tables, schemas, previews, and saved SQL; prepare approved query intent handoff to Squad Leader
+  forbidden: Configure GCP IAM or service accounts; execute unapproved production mutations; rewrite center rules
 inputs:
   projectId:
     type: string
