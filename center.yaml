@@ -1,0 +1,2 @@
+name: BigQuery Analytics
+description: Base center for running analytics queries over the BigQuery datasets and generating resulting CSV files.
