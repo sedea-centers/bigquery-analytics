@@ -1,0 +1,143 @@
+---
+description: >-
+  Required tools registry for BigQuery Analytics — gcloud SDK, bq CLI, and the
+  VS Plotter Sedea extension.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Required tools
+
+This is the normative tool inventory for BigQuery Analytics. Installation and
+verification missions must read this file rather than inventing tool names,
+paths, or installation methods.
+
+## Shared rules
+
+- Probe a user-supplied path first, then the bare command on `PATH`, then the
+  canonical install path only to diagnose an incomplete installation.
+- Installation requires structured user consent.
+- macOS and Linux use the official Google Cloud SDK archive under
+  `~/google-cloud-sdk`; expose `gcloud` and `bq` through non-destructive symlinks
+  under `~/bin`.
+- Windows uses the official Google Cloud SDK installer/default local path.
+- `bq` ships with the Google Cloud SDK. Never perform a second SDK installation
+  merely because `bq` is missing; repair/install the shared SDK once.
+- Resolve extensions against the installed **Sedea** application, not another
+  editor profile.
+
+## Tool inventory
+
+### `gcloud`
+
+| Field | Value |
+|-------|-------|
+| `id` | `gcloud` |
+| `kind` | `cli` |
+| `cli` | `gcloud` |
+| `minVersion` | `450.0.0` |
+| `docsUrl` | https://cloud.google.com/sdk/gcloud |
+| `installUrl` | https://cloud.google.com/sdk/docs/install-sdk |
+| `macosInstallPath` | `~/google-cloud-sdk/bin/gcloud` |
+| `linuxInstallPath` | `~/google-cloud-sdk/bin/gcloud` |
+| `windowsInstallPath` | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd` |
+| `macosMethods` | `curl-sdk` |
+| `linuxMethods` | `curl-sdk` |
+| `windowsMethods` | `official-sdk-installer` |
+
+Dry-runs:
+
+1. `gcloud version` — exit 0 and version ≥ `450.0.0`.
+2. `gcloud help` — exit 0.
+
+### `bq`
+
+| Field | Value |
+|-------|-------|
+| `id` | `bq` |
+| `kind` | `cli` |
+| `cli` | `bq` |
+| `minVersion` | `2.0.0` |
+| `docsUrl` | https://cloud.google.com/bigquery/docs/bq-command-line-tool |
+| `installUrl` | https://cloud.google.com/sdk/docs/install-sdk |
+| `macosInstallPath` | `~/google-cloud-sdk/bin/bq` |
+| `linuxInstallPath` | `~/google-cloud-sdk/bin/bq` |
+| `windowsInstallPath` | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\bq.cmd` |
+| `macosMethods` | `gcloud-sdk-bundled` |
+| `linuxMethods` | `gcloud-sdk-bundled` |
+| `windowsMethods` | `gcloud-sdk-bundled` |
+
+Dry-runs:
+
+1. `bq version` — exit 0.
+2. `bq help` — exit 0.
+
+`gcloud-sdk-bundled` means install or repair the shared SDK using the `gcloud`
+row; it is not a separate package-manager choice.
+
+### `vsplotter`
+
+| Field | Value |
+|-------|-------|
+| `id` | `vsplotter` |
+| `kind` | `sedea-extension` |
+| `extensionId` | `RafaelArvelo.vsplotter` |
+| `installVersion` | `1.9.0` |
+| `minVersion` | `1.9.0` |
+| `docsUrl` | https://marketplace.visualstudio.com/items?itemName=RafaelArvelo.vsplotter |
+| `installUrl` | https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage |
+| `macosMethods` | `marketplace-vsix-sedea-cli` |
+| `linuxMethods` | `marketplace-vsix-sedea-cli` |
+| `windowsMethods` | `marketplace-vsix-sedea-cli` |
+
+Probe and dry-run:
+
+```text
+"<sedea-cli>" --list-extensions --show-versions
+```
+
+Match `RafaelArvelo.vsplotter` case-insensitively and require version ≥ `1.9.0`.
+Sedea's configured Open VSX gallery does not contain this extension. Therefore
+`marketplace-vsix-sedea-cli` is the sole installation method: download the
+pinned VSIX from the official Microsoft Visual Studio Marketplace URL in this
+registry, then install that local file with the resolved Sedea CLI. Do not try
+an extension-id gallery install, ask the user to locate a VSIX, use a third-party
+downloader, substitute another plotting extension, or install into another
+editor.
+
+## Sedea CLI resolution
+
+| OS | Resolution |
+|----|------------|
+| macOS | `/Applications/Sedea.app/Contents/Resources/app/bin/code` |
+| Linux | `sedea` on PATH, or user-supplied Sedea CLI |
+| Windows | `sedea` on PATH, or user-supplied Sedea CLI |
+
+Install after consent on macOS or Linux:
+
+```bash
+tmp_dir="$(mktemp -d)"
+vsix="$tmp_dir/RafaelArvelo.vsplotter-1.9.0.vsix"
+curl -fsSL --compressed \
+  -o "$vsix" \
+  "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage"
+"<sedea-cli>" --install-extension "$vsix" --force
+rm -rf "$tmp_dir"
+```
+
+Install after consent on Windows PowerShell:
+
+```powershell
+$vsix = Join-Path $env:TEMP "RafaelArvelo.vsplotter-1.9.0.vsix"
+Invoke-WebRequest `
+  -Uri "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage" `
+  -OutFile $vsix
+& "<sedea-cli>" --install-extension $vsix --force
+Remove-Item -LiteralPath $vsix -Force
+```
+
+Run the probe again and require `rafaelarvelo.vsplotter@<version>` with version
+≥ `1.9.0`. A download, install, or verification failure is a failed install;
+route to the mission's retry/partial/abort checkpoint without inventing another
+method.
+

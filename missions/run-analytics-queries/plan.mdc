@@ -1,0 +1,148 @@
+---
+description: >-
+  Explore configured BigQuery data with a child specialist, save reusable SQL,
+  run it, export CSV, summarize results, and offer another query.
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Reassure the user that a complete query specification is not required.
+2. Resolve a configured dataset and its saved-query/result directories.
+3. Spawn a data-exploration lane that helps the user learn tables, schemas,
+   previews, and existing saved queries.
+4. Author and approve one reusable GoogleSQL query file.
+5. Dry-run, execute, and save results as CSV.
+6. Summarize rows, file size, path, job metadata, and caveats.
+7. Let the Squad Leader repeat the process or resolve the dispatch.
+
+## Protocol
+
+### 1. Infer intent and collect initial intake
+
+- **Type:** Branching logic
+- **Intent:** Match `run analytics query` or `explore analytics data` and capture
+  the user's goal.
+- **Inputs:** Opening message; optional business question, table hints, date
+  range, dimensions, metrics, filters, or desired output.
+- **Expected output:** Exploration brief.
+- **Next-step resolution:** Brief captured → §2; no phrase → USER_CHECKPOINT.
+
+USER_CHECKPOINT — confirm query/exploration intent.
+
+Tell the user they do **not** need to know every table, field, join, or filter.
+The mission will explore the configured dataset with them before committing to
+a query. Collect what decision or question the output should support; accept
+"show me what is available" as a valid brief.
+
+### 2. Resolve configured dataset
+
+- **Type:** Branching logic
+- **Intent:** Select one binding from `.sedea/bigquery-analytics.yaml`.
+- **Inputs:** Registry and optional dataset name from the opening message.
+- **Expected output:** Full dataset binding and local paths.
+- **Next-step resolution:** One unambiguous binding → §3; multiple/none →
+  USER_CHECKPOINT.
+
+USER_CHECKPOINT — choose configured dataset, start dataset configuration in a
+new dispatch, refresh, or abort.
+
+Verify service-account access with a metadata-only `bq` command.
+
+### 3. Spawn data exploration agent
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Explore tables, schemas, previews, saved SQL, and query ideas with
+  the user.
+- **Target role:** Data exploration agent
+- **Assigned skill:**
+  `missions/run-analytics-queries/skills/data-explorer/SKILL.md`
+- **Inputs:** `projectId`, `datasetId`, `location`, `queriesPath`,
+  `serviceAccountEmail`, `gcloudConfigurationName`, `inquiry`.
+- **Expected output:** Approved exploration handoff with proposed query intent,
+  relevant tables/fields, preview evidence, and saved-query candidate.
+- **Next-step resolution:** Spawn → external wait; terminal approved handoff →
+  §4; failure/abandon → USER_CHECKPOINT.
+
+Call `mission_control_spawn_agent` with a topic-specific lane title. The child
+owns the interactive exploration conversation. Open an external-wait modal
+before ending the leader turn; do not duplicate child choices on the leader.
+
+### 4. Draft and save query
+
+- **Type:** Branching logic
+- **Intent:** Turn exploration findings into reusable GoogleSQL.
+- **Inputs:** Child handoff, registry binding, existing SQL files.
+- **Expected output:** Approved query name and SQL body.
+- **Next-step resolution:** Approved → save under `queriesPath` → §5; revise →
+  repeat; abandon → §7.
+
+Draft:
+
+- a kebab-case query slug;
+- a one-sentence purpose;
+- parameter/default assumptions;
+- fully qualified table references;
+- bounded date/filter scope where appropriate;
+- deterministic ordering when meaningful.
+
+USER_CHECKPOINT — approve query, revise query, reuse an existing saved query,
+or abandon.
+
+Save the approved body as `<queriesPath>/<query-slug>.sql`. If the SQL file is
+tracked, use the hosting-repo worktree/PR flow; if it is intentionally local
+under a gitignored workspace, state that and save without git actions.
+
+### 5. Cost/safety preflight
+
+- **Type:** Simple skill execution
+- **Intent:** Validate SQL and estimate scan cost.
+- **Inputs:** Saved SQL file and dataset binding.
+- **Expected output:** Successful dry-run with estimated bytes.
+- **Next-step resolution:** Safe/approved → §6; syntax/permission/cost issue →
+  USER_CHECKPOINT.
+
+Run `bq query --use_legacy_sql=false --dry_run` against the exact saved file.
+Do not run mutations unless explicitly requested and approved.
+
+USER_CHECKPOINT — run query, revise SQL, add/adjust LIMIT or filters, or abort.
+
+### 6. Execute and export CSV
+
+- **Type:** Simple skill execution
+- **Intent:** Run the saved query and persist results.
+- **Inputs:** Approved SQL and `resultsPath`.
+- **Expected output:** CSV file plus execution summary.
+- **Next-step resolution:** Success/accepted partial → §7.
+
+For a safely sized result, run the exact saved SQL with CSV output. For a large
+result, materialize then `bq extract`. Write only under `resultsPath`, using a
+timestamped or approved filename. Never overwrite an existing CSV silently.
+
+Report:
+
+- saved SQL path;
+- CSV path;
+- data row count (header excluded);
+- byte size and human-readable size;
+- job id and bytes processed when available;
+- whether LIMIT/truncation/materialization applied;
+- a concise description of columns and notable result characteristics.
+
+### 7. Repeat or resolve
+
+- **Type:** Branching logic
+- **Intent:** Continue exploration/querying or finish.
+- **Inputs:** Last query summary and child handoff.
+- **Expected output:** Next cycle or resolution proposal.
+- **Next-step resolution:** Explore/modify/new query → appropriate earlier step;
+  resolve → terminal.
+
+USER_CHECKPOINT — explore more data, modify and rerun this query, create another
+query, or resolve the dispatch.
+
+Only the Squad Leader calls `mission_control_propose_dispatch_resolution`.
+

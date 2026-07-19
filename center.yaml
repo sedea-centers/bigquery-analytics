@@ -1,2 +1,22 @@
 name: BigQuery Analytics
-description: Base center for running analytics queries over the BigQuery datasets and generating resulting CSV files.
+description: >-
+  Configure durable BigQuery access, bind hosting-repo dataset workspaces, and
+  explore, save, and run analytics queries with CSV outputs.
+layout:
+  rules: rules/
+  missions: missions/
+rules:
+  - rules/00_bigquery-analytics.mdc
+  - rules/10_required-tools.mdc
+missions:
+  - slug: required-tools-installation
+    path: missions/required-tools-installation/
+    skillEntries:
+      - missions/required-tools-installation/skills/configure-gcloud-bigquery/SKILL.md
+  - slug: new-analytics-dataset-configuration
+    path: missions/new-analytics-dataset-configuration/
+    skillEntries: []
+  - slug: run-analytics-queries
+    path: missions/run-analytics-queries/
+    skillEntries:
+      - missions/run-analytics-queries/skills/data-explorer/SKILL.md

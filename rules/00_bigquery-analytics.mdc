@@ -1,0 +1,125 @@
+---
+description: >-
+  BigQuery Analytics center contract — dataset registry, durable service-account
+  access, query files, CSV results, and hosting-repo workspace boundaries.
+globs: "**/*"
+alwaysApply: true
+---
+
+# BigQuery Analytics
+
+## Purpose
+
+This center helps developers configure BigQuery datasets, understand available
+data, save reusable Standard SQL queries, and export query results to local CSV
+files.
+
+## Authentication contract
+
+BigQuery API calls always require credentials and Google issues short-lived
+access tokens internally. The center avoids **manually managed user tokens** and
+repeated browser login by using a locally stored service-account JSON key.
+Google tooling may mint and refresh transient access tokens from that key; agents
+must never print, commit, or copy those tokens or the private key into chat.
+
+- Default key path:
+  `~/.config/gcloud/<hosting-repo-basename>-sedea-bigquery.json`.
+- File mode on Unix: `0600`.
+- The key and generated auth state are local-only and must never enter git.
+- One-time user authentication may be required to create the project, service
+  account, key, and IAM bindings. Routine `bq` work uses the service account.
+- Use an isolated gcloud configuration named
+  `sedea-bigquery-<hosting-repo-basename>` so this center does not overwrite the
+  operator's default gcloud configuration.
+- Activate the service account in that isolated configuration with
+  `gcloud auth activate-service-account --key-file <path> --project <projectId>`.
+  This is durable credential configuration, not a pasted token workflow.
+
+## Hosting-repo dataset registry
+
+Dataset bindings live at the hosting-repo root:
+
+```text
+.sedea/bigquery-analytics.yaml
+```
+
+Schema:
+
+```yaml
+version: "1"
+datasets:
+  <slug>:
+    projectId: <gcp-project-id>
+    datasetId: <bigquery-dataset-id>
+    location: <bigquery-location>
+    localPath: <repo-relative-directory>
+    queriesPath: <repo-relative-directory>/queries
+    resultsPath: <repo-relative-directory>/results
+    serviceAccountEmail: <service-account-email>
+    credentialsPath: <absolute-local-key-path>
+    gcloudConfiguration: <isolated-config-name>
+```
+
+Agents must resolve the active dataset from this registry or structured user
+choice. Do not guess a project, dataset, region, local path, or service account.
+
+## Dataset workspace
+
+Each configured dataset owns one hosting-repo directory:
+
+```text
+<localPath>/
+  queries/   # reusable *.sql files; tracked unless hosting rules say otherwise
+  results/   # generated CSV files; gitignored
+```
+
+The configuration mission must:
+
+1. Create `queries/` and `results/`.
+2. Add `results/` to the hosting repo `.gitignore` idempotently.
+3. Keep SQL query files outside the ignored `results/` subtree.
+4. Write `.sedea/bigquery-analytics.yaml`, `.gitignore`, and any directory
+   placeholders in one hosting-repo worktree and PR.
+5. Never commit credentials or CSV exports.
+
+## IAM baseline
+
+For the mission surface in this center:
+
+- Project level: `roles/bigquery.jobUser` to run query jobs.
+- Project level: `roles/bigquery.user` when the service account may create
+  datasets.
+- Dataset level: `roles/bigquery.dataViewer` for read-only existing datasets.
+- Dataset level: `roles/bigquery.dataEditor` when saved queries may create,
+  update, or materialize tables.
+- Dataset level: `roles/bigquery.dataOwner` for a newly created dataset when the
+  service account must administer that dataset.
+
+Grant the narrowest combination that satisfies the selected operation. Do not
+default to project-wide `roles/bigquery.admin`.
+
+## Query and export contract
+
+- Use GoogleSQL: `bq query --use_legacy_sql=false`.
+- Default exploration previews use a bounded `LIMIT`; do not run an unbounded
+  exploratory query without explicit approval.
+- Save approved query text under `<queriesPath>/<query-slug>.sql` before the
+  production run.
+- Run saved SQL from the file; do not maintain a second hidden query body.
+- Export CSV under `<resultsPath>/` with a timestamped or user-approved filename.
+- Prefer `bq query --format=csv` for result sets that safely fit direct output.
+  For larger results, materialize to a temporary/destination table and use
+  `bq extract`; state the chosen path before execution.
+- Report query file, CSV file, row count (excluding the header), byte size,
+  BigQuery job id when available, and any truncation or export caveat.
+
+## Safety
+
+- Never print service-account private keys, credential JSON, access tokens, or
+  refresh tokens.
+- Preview table metadata and schemas before querying unfamiliar data.
+- Confirm estimated bytes (`--dry_run`) before a potentially expensive query.
+- Do not mutate source tables unless the user explicitly requests and approves
+  a write query.
+- All tracked hosting-repo edits use the Sedea worktree/PR flow.
+
