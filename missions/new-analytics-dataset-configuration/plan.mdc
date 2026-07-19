@@ -12,13 +12,14 @@ alwaysApply: false
 
 1. Validate Required Tools Installation outputs and durable service-account use.
 2. Offer an existing dataset or create a new dataset in an explicit location.
-3. Apply the narrow IAM roles needed to list/query or administer that dataset.
-4. Register the binding in `.sedea/bigquery-analytics.yaml`.
-5. Create tracked `queries/` and `data-schema/` directories plus gitignored
+3. Validate a new dataset id against BigQuery naming rules before create.
+4. Apply the narrow IAM roles needed to list/query or administer that dataset.
+5. Register the binding in `.sedea/bigquery-analytics.yaml`.
+6. Create tracked `queries/` and `data-schema/` directories plus gitignored
    `results/` in one hosting-repo worktree/PR.
-6. Fetch and save the dataset table/view schema under `data-schema/` so query
+7. Fetch and save the dataset table/view schema under `data-schema/` so query
    agents can construct SQL without live BigQuery schema exploration.
-7. Verify dataset metadata access, local schema presence, and a bounded dry-run
+8. Verify dataset metadata access, local schema presence, and a bounded dry-run
    query.
 
 ## Protocol
@@ -67,11 +68,26 @@ List datasets with `bq ls --project_id=<project>`. Offer:
 
 USER_CHECKPOINT — select existing dataset or create a new one.
 
-For create, collect/confirm a legal dataset id and BigQuery location before:
+For **create**, collect a proposed dataset id and BigQuery location, then
+**immediately** validate the id against BigQuery dataset ID rules (binding):
+
+| Rule | Requirement |
+|------|-------------|
+| Characters | Letters (`a-z`, `A-Z`), digits (`0-9`), and underscores (`_`) only |
+| Length | 1–1024 characters |
+| Case | Case-sensitive — preserve user casing; do not silently rewrite |
+| Empty / whitespace | Reject empty, whitespace-only, or ids with spaces/hyphens/other punctuation |
+
+**Agent check (same turn as collect):** If the proposed id fails any row, open
+structured choice — revise id · abort create · More details for option _ —
+**do not** proceed to confirm-create or `bq mk`. If it passes, continue to
+confirm id + location, then:
 
 ```text
 bq --location=<location> mk --dataset <project>:<dataset>
 ```
+
+USER_CHECKPOINT — revise invalid dataset id or abort create.
 
 USER_CHECKPOINT — confirm new dataset id and location.
 
