@@ -3,6 +3,9 @@ name: Configure gcloud BigQuery
 description: >-
   Configure a GCP project, service account, local key, isolated gcloud profile,
   and BigQuery IAM for durable non-interactive bq use.
+designation:
+  allowed: Configure GCP project, service account, local key, gcloud profile, and BigQuery IAM for durable non-interactive bq use
+  forbidden: Explore datasets or run analytics queries; rewrite center rules or mission plans
 inputs:
   projectPreference:
     type: string
