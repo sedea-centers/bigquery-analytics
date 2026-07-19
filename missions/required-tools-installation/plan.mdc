@@ -80,8 +80,12 @@ USER_CHECKPOINT — retry failed tool installation, accept partial result, or ab
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
-- **Intent:** Configure project, service account, local credential key, gcloud
-  configuration, and IAM.
+- **Intent:** Confirm Google Cloud Console readiness (accessible **navigation
+  sidebar** plus **organization / project selector**; a **Start for Free** /
+  **Try for free** banner is **not** diagnostic — do not require free-trial
+  signup merely because it appears; escalate only when sidebar or org/project
+  selection is blocked), then configure project, service account, local
+  credential key, gcloud configuration, and IAM.
 - **Target role:** BigQuery configuration agent
 - **Assigned skill:**
   `missions/required-tools-installation/skills/configure-gcloud-bigquery/SKILL.md`
