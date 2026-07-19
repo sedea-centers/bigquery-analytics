@@ -1,7 +1,8 @@
 ---
 description: >-
-  Select or create a BigQuery dataset, apply service-account IAM, and create a
-  hosting-repo query/result workspace with CSV outputs ignored.
+  Select or create a BigQuery dataset, apply service-account IAM, create a
+  hosting-repo queries/results/data-schema workspace, and persist dataset schema
+  for query agents.
 alwaysApply: false
 ---
 
@@ -14,9 +15,12 @@ alwaysApply: false
 3. Validate a new dataset id against BigQuery naming rules before create.
 4. Apply the narrow IAM roles needed to list/query or administer that dataset.
 5. Register the binding in `.sedea/bigquery-analytics.yaml`.
-6. Create tracked `queries/` and gitignored `results/` directories in one
-   hosting-repo worktree/PR.
-7. Verify dataset metadata access and a bounded dry-run query.
+6. Create tracked `queries/` and `data-schema/` directories plus gitignored
+   `results/` in one hosting-repo worktree/PR.
+7. Fetch and save the dataset table/view schema under `data-schema/` so query
+   agents can construct SQL without live BigQuery schema exploration.
+8. Verify dataset metadata access, local schema presence, and a bounded dry-run
+   query.
 
 ## Protocol
 
@@ -112,7 +116,8 @@ USER_CHECKPOINT — choose read-only, read-write, or dataset-owner access.
 - **Type:** Branching logic
 - **Intent:** Bind the dataset to a hosting-repo directory.
 - **Inputs:** Dataset id; optional local path.
-- **Expected output:** Dataset slug, `localPath`, `queriesPath`, `resultsPath`.
+- **Expected output:** Dataset slug, `localPath`, `queriesPath`, `resultsPath`,
+  `dataSchemaPath`.
 - **Next-step resolution:** User confirms paths → §6.
 
 Default:
@@ -121,50 +126,100 @@ Default:
 analytics/<dataset-slug>/
   queries/
   results/
+  data-schema/
 ```
 
-SQL files under `queries/` remain trackable. Generated CSV files under
-`results/` are ignored.
+SQL files under `queries/` and schema JSON under `data-schema/` remain
+trackable. Generated CSV files under `results/` are ignored. Default
+`dataSchemaPath` is `<localPath>/data-schema` (see
+`rules/00_bigquery-analytics.mdc` § *Dataset schema cache*).
 
 USER_CHECKPOINT — confirm or revise the dataset workspace paths.
 
-### 6. Create and promote hosting configuration
+### 6. Fetch and save dataset schema
+
+- **Type:** Simple skill execution
+- **Intent:** Persist the dataset's table/view schema locally so query agents
+  can construct SQL without live BigQuery schema exploration.
+- **Inputs:** Project id; dataset id; location; confirmed `localPath` /
+  `dataSchemaPath` from §5; durable service-account / `bq` from §2.
+- **Expected output:** Schema artifacts under `dataSchemaPath` for every table
+  and view in the dataset (or an explicit empty-dataset marker).
+- **Next-step resolution:** Schema saved → §7; failure → USER_CHECKPOINT.
+
+Layout (normative — also in center `rules/00_bigquery-analytics.mdc`):
+
+```text
+<dataSchemaPath>/            # default: <localPath>/data-schema
+  _dataset.json              # dataset id, location, fetchedAt, table count
+  tables/<tableId>.json      # columns, types, mode, description when present
+  views/<viewId>.json        # same shape; include view definition when available
+```
+
+Procedure:
+
+1. Resolve `dataSchemaPath` = `<localPath>/data-schema` unless the user revised
+   it at §5.
+2. List tables/views: `bq ls --format=json <project>:<dataset>`.
+3. For each table/view, fetch schema via `bq show --schema --format=json …`
+   (and view metadata when applicable). Never print credentials.
+4. Write `_dataset.json` plus one JSON file per table/view under `tables/` or
+   `views/`. Overwrite on re-run for the same dataset binding.
+5. If the dataset has zero tables/views, write `_dataset.json` with
+   `tableCount: 0` and empty `tables/` + `views/` trees (or omit empty dirs).
+6. Schema files are **tracked** hosting-repo content (unlike `results/`). They
+   land in the same hosting worktree/PR as §7.
+
+USER_CHECKPOINT — confirm `data-schema` path and approve fetch/write.
+
+### 7. Create and promote hosting configuration
 
 - **Type:** Simple skill execution
 - **Intent:** Write all tracked hosting configuration in one worktree/PR.
-- **Inputs:** Registry row, paths, project/dataset/IAM details.
+- **Inputs:** Registry row, paths (including `dataSchemaPath`), project/dataset
+  /IAM details, schema artifacts from §6.
 - **Expected output:** Merged hosting configuration and cleaned worktree.
-- **Next-step resolution:** Merge/cleanup → §7.
+- **Next-step resolution:** Merge/cleanup → §8.
 
 Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 
 1. Create `queries/`.
 2. Create `results/` (or a non-secret placeholder if needed).
-3. Add `<resultsPath>/` to `.gitignore` idempotently.
-4. Create/update `.sedea/bigquery-analytics.yaml` using the rule-00 schema.
-5. Never write the credential JSON into the worktree.
-6. Present the diff and use the mission-owned commit/push/PR gate.
-7. After PR merge, detach and clean only this mission's worktree.
+3. Create `data-schema/` (and ensure §6 artifacts are present under it).
+4. Add `<resultsPath>/` to `.gitignore` idempotently. Do **not** gitignore
+   `data-schema/`.
+5. Create/update `.sedea/bigquery-analytics.yaml` using the rule-00 schema
+   (include optional `dataSchemaPath`; default `<localPath>/data-schema`).
+6. Never write the credential JSON into the worktree.
+7. Present the diff and use the mission-owned commit/push/PR gate.
+8. After PR merge, detach and clean only this mission's worktree.
 
 USER_CHECKPOINT — approve hosting configuration diff and choose git pipeline.
 
 After PR creation, use the center's required PR-review cadence when available;
 otherwise wait for merge with an external-wait resume modal.
 
-### 7. Verify binding
+### 8. Verify binding
 
 - **Type:** Simple skill execution
-- **Intent:** Confirm the configured dataset is usable.
-- **Inputs:** Merged registry row.
-- **Expected output:** Successful dataset list/schema probe and query dry-run.
-- **Next-step resolution:** Pass/accepted partial → §8.
+- **Intent:** Confirm the configured dataset is usable and local schema is
+  present.
+- **Inputs:** Merged registry row; `dataSchemaPath`.
+- **Expected output:** Successful dataset list, local schema files readable
+  (or refresh if missing/stale), and query dry-run.
+- **Next-step resolution:** Pass/accepted partial → §9.
 
 Use the registry values explicitly. BigQuery has no dependable universal
 "default dataset" for all `bq` subcommands; this center's registry is the
 binding, and query missions must use qualified table references plus project and
 location flags.
 
-### 8. Resolve dispatch
+Before any live `bq show` exploration for query construction, prefer reading
+`<dataSchemaPath>/` per `rules/00_bigquery-analytics.mdc` § *Dataset schema
+cache*. If local schema is missing after merge, re-run §6 fetch into the
+hosting workspace and re-promote as needed.
+
+### 9. Resolve dispatch
 
 - **Type:** Finish/stop logic
 - **Intent:** Close dataset configuration.
@@ -175,4 +230,3 @@ location flags.
 USER_CHECKPOINT — approve dispatch resolution.
 
 The Squad Leader calls `mission_control_propose_dispatch_resolution`.
-
