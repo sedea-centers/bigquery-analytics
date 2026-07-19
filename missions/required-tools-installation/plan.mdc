@@ -89,18 +89,24 @@ USER_CHECKPOINT — retry failed tool installation, accept partial result, or ab
 - **Target role:** BigQuery configuration agent
 - **Assigned skill:**
   `missions/required-tools-installation/skills/configure-gcloud-bigquery/SKILL.md`
-- **Inputs:** `projectPreference`, optional `existingProjectId`,
-  `serviceAccountPreference`, optional `existingServiceAccountEmail`,
-  `defaultNewProjectId`, `defaultNewServiceAccountId`,
-  `credentialsTargetPath`, `gcloudConfigurationName`.
+- **Inputs:** optional `projectPreference` hint, optional `existingProjectId`
+  when already known, `serviceAccountPreference`, optional
+  `existingServiceAccountEmail`, `defaultNewProjectId`,
+  `defaultNewServiceAccountId`, `credentialsTargetPath`,
+  `gcloudConfigurationName`.
 - **Expected output:** Skill completion fields.
 - **Next-step resolution:** Spawn → external wait; terminal success → §6;
   partial/failure → USER_CHECKPOINT.
 
-USER_CHECKPOINT — select existing/create project and existing/create service account.
+USER_CHECKPOINT — optional leader hints for project/service-account preference
+before spawn (hints only — not a substitute for child-lane auth + project list).
 
-Compile inputs, then call `mission_control_spawn_agent`. The service-account id
-must be 6–30 characters. Default credential path:
+Compile spawn inputs, then call `mission_control_spawn_agent`. Do **not** require
+a concrete `existingProjectId` on the leader when the path is “select existing”
+— the **child skill** owns: authenticate `gcloud` when needed → list projects via
+`gcloud` → user pick or create. Leader may pass `projectPreference` /
+`existingProjectId` as hints only. The service-account id must be 6–30
+characters. Default credential path:
 `~/.config/gcloud/<hosting-repo-basename>-sedea-bigquery.json`.
 
 After spawn, open an external-wait modal naming **Check configuration status**,

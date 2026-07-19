@@ -9,10 +9,16 @@ designation:
 inputs:
   projectPreference:
     type: string
-    description: select-existing | create-default
-    required: true
+    description: >-
+      Optional hint only — select-existing | create-default. Child lane still
+      authenticates gcloud when needed, then offers select vs create and lists
+      live projects via gcloud for select.
+    required: false
   existingProjectId:
     type: string
+    description: >-
+      Optional hint project id; validated against live gcloud projects list when
+      selecting existing.
     required: false
   defaultNewProjectId:
     type: string
@@ -91,17 +97,29 @@ authorized principal. Check `gcloud auth list`.
 If no active user exists, explain that a **one-time** `gcloud auth login` is
 needed for setup authority. This does not become the routine query credential.
 Open an external-wait modal, ask the user to authenticate in their terminal,
-then re-probe. Routine use later activates the service-account key.
+then re-probe until an active user is present. **Do not** list or create
+projects until authentication succeeds. Routine use later activates the
+service-account key.
 
 ### 4. Select or create project
 
-List accessible projects. Apply `inputs.projectPreference`.
+After setup authority is authenticated, choose create vs select — then list or
+create. Treat `inputs.projectPreference` / `inputs.existingProjectId` as
+**hints only**; do not skip the live list when the user is selecting an
+existing project.
 
-- Existing: validate `inputs.existingProjectId`.
-- Create: confirm the legal globally unique project id before
+USER_CHECKPOINT — **Select existing project** · **Create new project** ·
+**More details for option _** (pre-fill from `projectPreference` when set).
+
+- **Select existing project:** run `gcloud projects list` (or equivalent) and
+  present accessible project ids in a USER_CHECKPOINT for the user to pick.
+  Validate the chosen id; prefer `inputs.existingProjectId` only when it still
+  appears in the live list and the user confirms it.
+- **Create new project:** confirm the legal globally unique project id before
   `gcloud projects create`.
 
-USER_CHECKPOINT — confirm project create when a new project is requested.
+USER_CHECKPOINT — confirm project create when a new project is requested; or
+pick from the live `gcloud` project list when selecting existing.
 
 Set the selected project for setup commands and enable
 `bigquery.googleapis.com`.
