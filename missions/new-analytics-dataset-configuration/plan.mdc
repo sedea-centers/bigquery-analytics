@@ -2,7 +2,7 @@
 description: >-
   Select or create a BigQuery dataset, apply service-account IAM, create a
   hosting-repo queries/results/data-schema workspace, and persist dataset schema
-  for query agents.
+  for query agents — or remediate an existing registry binding step by step.
 alwaysApply: false
 ---
 
@@ -21,16 +21,21 @@ alwaysApply: false
    agents can construct SQL without live BigQuery schema exploration.
 8. Verify dataset metadata access, local schema presence, and a bounded dry-run
    query.
+9. For **fix** intent: select an existing registry binding and remediate only
+   steps the user marks as needing fix, reusing create-path checks step-by-step.
 
 ## Protocol
 
 ### 1. Infer intent
 
 - **Type:** Branching logic
-- **Intent:** Match `configure new analytics dataset`.
+- **Intent:** Match command phrases (longer phrases first per Sedea rule **4**).
 - **Inputs:** Opening message and `mission.yaml`.
-- **Expected output:** `configure`.
-- **Next-step resolution:** Match → §2; otherwise USER_CHECKPOINT.
+- **Expected output:** `configure` | `fix`.
+- **Next-step resolution:**
+  - **`configure new analytics dataset`** → intent **`configure`** → §2.
+  - **`fix the existing dataset configuration`** → intent **`fix`** → §2-fix.
+  - No match → USER_CHECKPOINT.
 
 USER_CHECKPOINT — confirm dataset configuration intent.
 
@@ -50,13 +55,34 @@ Never display credential material.
 USER_CHECKPOINT — start Required Tools Installation in a new dispatch, provide
 existing configuration details, retry, or abort.
 
+### 2-fix. Select existing dataset configuration
+
+- **Type:** Branching logic
+- **Intent:** Choose which registered binding to remediate (**fix** path only).
+- **Inputs:** `.sedea/bigquery-analytics.yaml` (and related center rule schema).
+- **Expected output:** Selected dataset id, project, `localPath` / path fields
+  from the registry row.
+- **Next-step resolution:** Selection approved → §3-fix.
+
+Procedure:
+
+1. Read the registry; list each binding (dataset id, project, `localPath`
+   summary).
+2. Structured choice: one option per binding · refresh · abort · More details
+   for option _.
+3. Do **not** create a new dataset or new workspace folder in this step.
+
+USER_CHECKPOINT — pick which existing dataset configuration to fix.
+
 ### 3. Select or create dataset
 
 - **Type:** Branching logic
-- **Intent:** Resolve the BigQuery dataset.
+- **Intent:** Resolve the BigQuery dataset (**configure** path only).
 - **Inputs:** Project id; optional dataset id and location.
 - **Expected output:** Dataset id and location.
 - **Next-step resolution:** Existing/new choice approved → §4.
+
+**Skipped on the fix path** after §2-fix has locked the binding.
 
 List datasets with `bq ls --project_id=<project>`. Offer:
 
@@ -90,6 +116,42 @@ bq --location=<location> mk --dataset <project>:<dataset>
 USER_CHECKPOINT — revise invalid dataset id or abort create.
 
 USER_CHECKPOINT — confirm new dataset id and location.
+
+### 3-fix. Step-by-step fix walk
+
+- **Type:** Branching logic
+- **Intent:** Replay the create protocol’s substantive steps against the
+  selected binding; at each step ask whether it needs fixing; run that step’s
+  procedure only when yes (**fix** path only).
+- **Inputs:** Selected registry row; same step bodies as §§2, 4–8 (prereqs, IAM,
+  local workspace, schema fetch, hosting promote, verify).
+- **Expected output:** Remediated steps applied; unchanged steps skipped with
+  explicit ack.
+- **Next-step resolution:** Walk complete → §9 Resolve dispatch.
+
+Ordered walk (map to existing sections):
+
+| Walk index | Existing § | Ask |
+|------------|------------|-----|
+| A | §2 Verify prerequisites | Needs fix? |
+| B | §4 Apply IAM | Needs fix? |
+| C | §5 Resolve local workspace | Needs fix? (revise paths / repair dirs — not greenfield create unless missing) |
+| D | §6 Fetch and save dataset schema | Needs fix? |
+| E | §7 Create and promote hosting configuration | Needs fix? (update registry/PR only when yes) |
+| F | §8 Verify binding | Needs fix? / run verify |
+
+At each index:
+
+1. Recap current state for that step (from registry + filesystem).
+2. USER_CHECKPOINT — **Fix this step** · **Skip — looks fine** · **Abort walk** ·
+   More details for option _.
+3. On **Fix**: execute that section’s procedure against the **existing** binding
+   (same checks as create, scoped to remediation).
+4. On **Skip**: advance to the next index.
+
+**Forbidden on the fix path unless a step explicitly requires it:** creating a
+brand-new BigQuery dataset; inventing a new default workspace when a valid
+`localPath` already exists.
 
 ### 4. Apply IAM
 
