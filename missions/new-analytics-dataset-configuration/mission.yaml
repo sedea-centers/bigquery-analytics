@@ -1,0 +1,8 @@
+name: New Analytics Dataset Configuration
+description: >-
+  Select or create a BigQuery dataset, grant service-account access, and bind it
+  to a hosting-repo queries/results workspace.
+commands:
+  - phrase: configure new analytics dataset
+    description: Configure a BigQuery dataset and its local analytics workspace.
+

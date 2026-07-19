@@ -1,0 +1,10 @@
+name: Run Analytics Queries
+description: >-
+  Explore a configured BigQuery dataset with the user, save a reusable SQL
+  query, run it, and export summarized CSV results.
+commands:
+  - phrase: run analytics query
+    description: Explore data, author a reusable query, and export CSV results.
+  - phrase: explore analytics data
+    description: Start with dataset discovery before choosing a query.
+

@@ -1,0 +1,126 @@
+---
+description: >-
+  Install and verify BigQuery Analytics tools, then provision durable local
+  gcloud, project, service-account, IAM, and credential configuration.
+alwaysApply: false
+---
+
+# Mission plan
+
+## Objectives
+
+1. Install and verify `gcloud`, `bq`, and `RafaelArvelo.vsplotter` from
+   `rules/10_required-tools.mdc`.
+2. Offer an existing or new GCP project and service account.
+3. Store service-account credentials locally with restrictive permissions.
+4. Configure an isolated gcloud configuration for routine service-account use,
+   avoiding repeated user-login/token friction.
+5. Grant the IAM baseline required by dataset configuration and query missions.
+6. Return a reusable non-secret configuration summary.
+
+## Protocol
+
+### 1. Infer intent
+
+- **Type:** Branching logic
+- **Intent:** Match `install required tools`.
+- **Inputs:** Opening message and `mission.yaml`.
+- **Expected output:** `install`.
+- **Next-step resolution:** Match → §2; otherwise USER_CHECKPOINT.
+
+USER_CHECKPOINT — confirm Required Tools Installation intent.
+
+Apply longest-prefix, case-insensitive mission command matching. Refresh the
+dispatch display with a stable BigQuery tools/configuration title.
+
+### 2. Load registry and probe
+
+- **Type:** Simple skill execution
+- **Intent:** Classify required tools.
+- **Inputs:** `rules/10_required-tools.mdc`; optional user paths.
+- **Expected output:** Per-tool `ok` / `outdated` / `missing`.
+- **Next-step resolution:** All ok → §5; gaps → §3.
+
+Read the registry completely. Probe `gcloud` and `bq` as one SDK installation
+surface but report them separately. Probe VS Plotter only in Sedea.
+
+### 3. Confirm installation
+
+- **Type:** Branching logic
+- **Intent:** Obtain per-tool install/override consent.
+- **Inputs:** Probe table.
+- **Expected output:** `install` / `use-path` / `skip` / `abort` per gap.
+- **Next-step resolution:** Install/override → §4; skip → §5; abort → §7.
+
+USER_CHECKPOINT — choose install, existing path, skip, or abort for missing tools.
+
+Use each registry row's sole OS method. Do not offer package-manager or install
+directory choices. For VS Plotter gallery failure, offer a trusted local VSIX
+path or skip; do not install into another editor.
+
+### 4. Install and dry-run
+
+- **Type:** Simple skill execution
+- **Intent:** Install only approved tools and verify them.
+- **Inputs:** §3 approvals and registry methods.
+- **Expected output:** Installation and dry-run results.
+- **Next-step resolution:** `gcloud` and `bq` usable → §5; hard failure →
+  USER_CHECKPOINT retry/partial/abort.
+
+Deduplicate the shared SDK install. On Unix, create non-destructive `~/bin`
+symlinks for `gcloud` and `bq`. Run every applicable registry dry-run.
+
+USER_CHECKPOINT — retry failed tool installation, accept partial result, or abort.
+
+### 5. Configure durable BigQuery access
+
+- **Type:** Agent engagement and handover
+- **execution:** `spawned`
+- **Intent:** Configure project, service account, local credential key, gcloud
+  configuration, and IAM.
+- **Target role:** BigQuery configuration agent
+- **Assigned skill:**
+  `missions/required-tools-installation/skills/configure-gcloud-bigquery/SKILL.md`
+- **Inputs:** `projectPreference`, optional `existingProjectId`,
+  `serviceAccountPreference`, optional `existingServiceAccountEmail`,
+  `defaultNewProjectId`, `defaultNewServiceAccountId`,
+  `credentialsTargetPath`, `gcloudConfigurationName`.
+- **Expected output:** Skill completion fields.
+- **Next-step resolution:** Spawn → external wait; terminal success → §6;
+  partial/failure → USER_CHECKPOINT.
+
+USER_CHECKPOINT — select existing/create project and existing/create service account.
+
+Compile inputs, then call `mission_control_spawn_agent`. The service-account id
+must be 6–30 characters. Default credential path:
+`~/.config/gcloud/<hosting-repo-basename>-sedea-bigquery.json`.
+
+After spawn, open an external-wait modal naming **Check configuration status**,
+**Retry configuration**, **Abort**, and **More details for option _**. Do not
+advance until the child result arrives.
+
+### 6. Verify routine use
+
+- **Type:** Simple skill execution
+- **Intent:** Verify non-interactive service-account operation.
+- **Inputs:** Child outputs.
+- **Expected output:** `gcloud auth list`, `bq ls`, and dry-run verification
+  without exposing credentials.
+- **Next-step resolution:** Pass/accepted partial → §7.
+
+Routine commands must use the isolated gcloud configuration and activated
+service account. Do not ask for or print access/refresh tokens.
+
+### 7. Resolve dispatch
+
+- **Type:** Finish/stop logic
+- **Intent:** Close installation/configuration.
+- **Inputs:** Tool and configuration results.
+- **Expected output:** Squad Leader resolution proposal.
+- **Next-step resolution:** Terminal.
+
+USER_CHECKPOINT — approve dispatch resolution.
+
+The Squad Leader calls `mission_control_propose_dispatch_resolution` with
+`resolved`, `partial`, `aborted`, or `abandoned`.
+

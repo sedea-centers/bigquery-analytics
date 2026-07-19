@@ -1,0 +1,118 @@
+---
+description: >-
+  Required tools registry for BigQuery Analytics — gcloud SDK, bq CLI, and the
+  VS Plotter Sedea extension.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Required tools
+
+This is the normative tool inventory for BigQuery Analytics. Installation and
+verification missions must read this file rather than inventing tool names,
+paths, or installation methods.
+
+## Shared rules
+
+- Probe a user-supplied path first, then the bare command on `PATH`, then the
+  canonical install path only to diagnose an incomplete installation.
+- Installation requires structured user consent.
+- macOS and Linux use the official Google Cloud SDK archive under
+  `~/google-cloud-sdk`; expose `gcloud` and `bq` through non-destructive symlinks
+  under `~/bin`.
+- Windows uses the official Google Cloud SDK installer/default local path.
+- `bq` ships with the Google Cloud SDK. Never perform a second SDK installation
+  merely because `bq` is missing; repair/install the shared SDK once.
+- Resolve extensions against the installed **Sedea** application, not another
+  editor profile.
+
+## Tool inventory
+
+### `gcloud`
+
+| Field | Value |
+|-------|-------|
+| `id` | `gcloud` |
+| `kind` | `cli` |
+| `cli` | `gcloud` |
+| `minVersion` | `450.0.0` |
+| `docsUrl` | https://cloud.google.com/sdk/gcloud |
+| `installUrl` | https://cloud.google.com/sdk/docs/install-sdk |
+| `macosInstallPath` | `~/google-cloud-sdk/bin/gcloud` |
+| `linuxInstallPath` | `~/google-cloud-sdk/bin/gcloud` |
+| `windowsInstallPath` | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\gcloud.cmd` |
+| `macosMethods` | `curl-sdk` |
+| `linuxMethods` | `curl-sdk` |
+| `windowsMethods` | `official-sdk-installer` |
+
+Dry-runs:
+
+1. `gcloud version` — exit 0 and version ≥ `450.0.0`.
+2. `gcloud help` — exit 0.
+
+### `bq`
+
+| Field | Value |
+|-------|-------|
+| `id` | `bq` |
+| `kind` | `cli` |
+| `cli` | `bq` |
+| `minVersion` | `2.0.0` |
+| `docsUrl` | https://cloud.google.com/bigquery/docs/bq-command-line-tool |
+| `installUrl` | https://cloud.google.com/sdk/docs/install-sdk |
+| `macosInstallPath` | `~/google-cloud-sdk/bin/bq` |
+| `linuxInstallPath` | `~/google-cloud-sdk/bin/bq` |
+| `windowsInstallPath` | `%LOCALAPPDATA%\Google\CloudSDK\google-cloud-sdk\bin\bq.cmd` |
+| `macosMethods` | `gcloud-sdk-bundled` |
+| `linuxMethods` | `gcloud-sdk-bundled` |
+| `windowsMethods` | `gcloud-sdk-bundled` |
+
+Dry-runs:
+
+1. `bq version` — exit 0.
+2. `bq help` — exit 0.
+
+`gcloud-sdk-bundled` means install or repair the shared SDK using the `gcloud`
+row; it is not a separate package-manager choice.
+
+### `vsplotter`
+
+| Field | Value |
+|-------|-------|
+| `id` | `vsplotter` |
+| `kind` | `sedea-extension` |
+| `extensionId` | `RafaelArvelo.vsplotter` |
+| `minVersion` | `presence-only` |
+| `docsUrl` | https://marketplace.visualstudio.com/items?itemName=RafaelArvelo.vsplotter |
+| `installUrl` | https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_command-line-extension-management |
+| `macosMethods` | `sedea-cli-install-extension` |
+| `linuxMethods` | `sedea-cli-install-extension` |
+| `windowsMethods` | `sedea-cli-install-extension` |
+
+Probe and dry-run:
+
+```text
+"<sedea-cli>" --list-extensions --show-versions
+```
+
+Match `RafaelArvelo.vsplotter` case-insensitively. The extension is currently
+listed on Microsoft Visual Studio Marketplace and may not exist in Sedea's
+configured Open VSX gallery. The install mission must first try the Sedea CLI
+against the configured gallery. If unavailable, stop and offer a trusted local
+VSIX path or skip; never silently install it into another editor or download an
+unverified VSIX.
+
+## Sedea CLI resolution
+
+| OS | Resolution |
+|----|------------|
+| macOS | `/Applications/Sedea.app/Contents/Resources/app/bin/code` |
+| Linux | `sedea` on PATH, or user-supplied Sedea CLI |
+| Windows | `sedea` on PATH, or user-supplied Sedea CLI |
+
+Install after consent:
+
+```text
+"<sedea-cli>" --install-extension "RafaelArvelo.vsplotter" --force
+```
+
