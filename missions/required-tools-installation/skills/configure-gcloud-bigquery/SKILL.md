@@ -52,7 +52,35 @@ warmUpRules:
 Set `CLOUDSDK_CORE_DISABLE_PROMPTS=1`. Probe `gcloud version` and `bq version`.
 Do not PATH-prepend the SDK as a workaround.
 
-### 2. Establish setup authority
+### 2. Confirm Google Cloud Console readiness (browser)
+
+Before any terminal authentication or project/service-account work, confirm the
+user can use Google Cloud Console in a browser.
+
+Present short, friendly instructions (paraphrase freely; keep the checklist):
+
+1. Open **[https://console.cloud.google.com/](https://console.cloud.google.com/)**
+   in a browser (sign in with the Google account they will use for this setup).
+2. Confirm they can reach the **Google Cloud console** (not an error page or a
+   blocked-org screen).
+3. **Readiness signal (binding):** Console is ready when they can open the
+   **navigation sidebar** with Cloud dashboard items **and** use the
+   **organization / project selector** to choose the intended org and project.
+   A **“Start for Free”** / **“Try for free”** / **“Try for free now”** banner
+   (or similar) is **not** diagnostic — it does **not** mean Cloud is missing
+   or unusable. Do **not** require free-trial signup merely because that message
+   appears.
+4. If they cannot open the sidebar or select an organization/project, and their
+   **organization** manages Google Cloud, they may need an admin to turn on
+   Cloud for their user; the skill cannot do that for them.
+
+Open an **external-wait / next-step** structured choice before ending the turn,
+for example: **Sidebar and project selector work — continue to login**, **Still
+blocked / need help**, **Abort**, **More details for option _**. Do **not**
+proceed to `gcloud auth login` until the user selects a continue path that means
+the Console sidebar and organization/project selector are usable.
+
+### 3. Establish setup authority
 
 Creating projects, service accounts, keys, and IAM bindings requires an existing
 authorized principal. Check `gcloud auth list`.
@@ -62,7 +90,7 @@ needed for setup authority. This does not become the routine query credential.
 Open an external-wait modal, ask the user to authenticate in their terminal,
 then re-probe. Routine use later activates the service-account key.
 
-### 3. Select or create project
+### 4. Select or create project
 
 List accessible projects. Apply `inputs.projectPreference`.
 
@@ -75,7 +103,7 @@ USER_CHECKPOINT — confirm project create when a new project is requested.
 Set the selected project for setup commands and enable
 `bigquery.googleapis.com`.
 
-### 4. Select or create service account
+### 5. Select or create service account
 
 List service accounts. Derive a legal 6–30-character account id from
 `inputs.defaultNewServiceAccountId`; auto-shorten an overlong seed.
@@ -84,7 +112,7 @@ USER_CHECKPOINT — select existing service account or confirm creation.
 
 Create when approved. Record only the service-account email.
 
-### 5. Grant project IAM
+### 6. Grant project IAM
 
 Grant the service account:
 
@@ -95,7 +123,7 @@ These support query jobs and optional dataset creation. Dataset-specific data
 roles are applied by New Analytics Dataset Configuration. Do not grant
 project-wide `roles/bigquery.admin`.
 
-### 6. Create local key
+### 7. Create local key
 
 Expand `inputs.credentialsTargetPath`, create its parent, and fail if the target
 already contains an unrelated key unless the user approves replacement.
@@ -119,7 +147,7 @@ automatically. Offer:
 
 USER_CHECKPOINT — resolve service-account key policy blocker.
 
-### 7. Create isolated gcloud configuration
+### 8. Create isolated gcloud configuration
 
 Create or activate `inputs.gcloudConfigurationName`, then:
 
@@ -132,7 +160,7 @@ gcloud config set project <project>
 This stores durable service-account configuration locally. Google still mints
 short-lived access tokens internally; no human copies or renews them.
 
-### 8. Verify
+### 9. Verify
 
 Run:
 
@@ -143,7 +171,7 @@ Run:
 Parse output without exposing credentials. Record command names, exit codes,
 and the active service-account email.
 
-### 9. Complete
+### 10. Complete
 
 Call `mission_control_send_agent_result`; omit all host identity fields.
 
