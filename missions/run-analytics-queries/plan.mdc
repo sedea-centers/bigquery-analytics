@@ -1,7 +1,8 @@
 ---
 description: >-
-  Explore configured BigQuery data with a child specialist, save reusable SQL,
-  run it, export CSV, summarize results, and offer another query.
+  Explore configured BigQuery data with a child specialist, keep the local
+  schema cache in sync on drift, save reusable SQL, run it, export CSV,
+  summarize results, and offer another query.
 alwaysApply: false
 ---
 
@@ -11,12 +12,15 @@ alwaysApply: false
 
 1. Reassure the user that a complete query specification is not required.
 2. Resolve a configured dataset and its saved-query/result directories.
-3. Spawn a data-exploration lane that helps the user learn tables, schemas,
+3. Keep the local dataset schema cache aligned with BigQuery; on drift, refresh
+   and ship via the hosting worktree/PR flow, merging into an in-flight PR when
+   one already covers queries or other tracked updates.
+4. Spawn a data-exploration lane that helps the user learn tables, schemas,
    previews, and existing saved queries.
-4. Author and approve one reusable GoogleSQL query file.
-5. Dry-run, execute, and save results as CSV.
-6. Summarize rows, file size, path, job metadata, and caveats.
-7. Let the Squad Leader repeat the process or resolve the dispatch.
+5. Author and approve one reusable GoogleSQL query file.
+6. Dry-run, execute, and save results as CSV.
+7. Summarize rows, file size, path, job metadata, and caveats.
+8. Let the Squad Leader repeat the process or resolve the dispatch.
 
 ## Protocol
 
@@ -43,7 +47,7 @@ a query. Collect what decision or question the output should support; accept
 - **Intent:** Select one binding from `.sedea/bigquery-analytics.yaml`.
 - **Inputs:** Registry and optional dataset name from the opening message.
 - **Expected output:** Full dataset binding and local paths.
-- **Next-step resolution:** One unambiguous binding → §3; multiple/none →
+- **Next-step resolution:** One unambiguous binding → §2.5; multiple/none →
   USER_CHECKPOINT.
 
 USER_CHECKPOINT — choose configured dataset, start dataset configuration in a
@@ -51,12 +55,63 @@ new dispatch, refresh, or abort.
 
 Verify service-account access with a metadata-only `bq` command.
 
+### 2.5 Detect schema drift and refresh cache
+
+- **Type:** Branching logic
+- **Intent:** Compare the remote BigQuery dataset schema to the local
+  `dataSchemaPath` cache; when drifted (or cache missing/empty for a non-empty
+  dataset), refresh schema artifacts and ship them through the hosting-repo
+  worktree/commit/push/PR flow — merging into an existing worktree/PR when this
+  pass is already shipping tracked updates (for example new or changed saved
+  queries).
+- **Inputs:** Dataset binding from §2 (`projectId`, `datasetId`, `location`,
+  `localPath`, `dataSchemaPath`); optional active `WORKTREE_ROOT` / open PR for
+  this pass; center rule `00_bigquery-analytics.mdc` § *Dataset schema cache*;
+  fetch procedure from **new-analytics-dataset-configuration** §6.
+- **Expected output:** Either (a) confirmed cache-in-sync with evidence, or
+  (b) refreshed `_dataset.json` plus `tables/` / `views/` JSON under
+  `dataSchemaPath`, with ship path decided (new worktree/PR vs merge into
+  in-flight).
+- **Next-step resolution:** In sync or refresh skipped with approval → §3;
+  refresh written and ship deferred/merged per gate → §3; hard failure →
+  USER_CHECKPOINT.
+
+USER_CHECKPOINT — refresh schema now · skip refresh this run · more details.
+
+**Procedure**
+
+1. Resolve `dataSchemaPath` (registry or default `<localPath>/data-schema`).
+2. Read local `_dataset.json` and inventory `tables/` / `views/` when present.
+3. Fetch remote inventory/schema via metadata-only `bq` (`bq ls`,
+   `bq show --schema`) — same shape as configuration mission §6; never print
+   credentials.
+4. Diff remote vs local (table/view set, column name/type/mode, view
+   definitions when available). Treat missing/empty local cache for a non-empty
+   remote dataset as drift.
+5. If **no drift:** record brief evidence; continue §3. Prefer the local cache
+   in exploration (do not re-probe live unless the user asks).
+6. If **drift** (or missing cache):
+   - Open the USER_CHECKPOINT above.
+   - On **refresh schema now:** rewrite schema artifacts per configuration §6
+     layout (overwrite same binding).
+   - **Ship (hosting-repo tracked `data-schema/`):**
+     - If this pass **already** has an active hosting `WORKTREE_ROOT` / open PR
+       for queries or other tracked updates → stage schema changes in **that
+       same** worktree and include them in the **same** commit/PR.
+     - Otherwise → run Hosting-repo ship cadence (worktree-setup → attach →
+       commit/push/PR per Sedea rule **6**), walking the user through each gate;
+       post-merge cleanup only for this pass's path.
+   - On **skip:** continue §3 using best-available cache/live fallback per
+     center rule; note staleness in recap.
+7. Do **not** open a second worktree solely for schema when one already covers
+   this pass's tracked hosting edits.
+
 ### 3. Spawn data exploration agent
 
 - **Type:** Agent engagement and handover
 - **execution:** `spawned`
 - **Intent:** Explore tables, schemas, previews, saved SQL, and query ideas with
-  the user.
+  the user, preferring the local schema cache from §2.5 when in sync.
 - **Target role:** Data exploration agent
 - **Assigned skill:**
   `missions/run-analytics-queries/skills/data-explorer/SKILL.md`
