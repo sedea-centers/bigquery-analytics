@@ -82,12 +82,13 @@ row; it is not a separate package-manager choice.
 | `id` | `vsplotter` |
 | `kind` | `sedea-extension` |
 | `extensionId` | `RafaelArvelo.vsplotter` |
-| `minVersion` | `presence-only` |
+| `installVersion` | `1.9.0` |
+| `minVersion` | `1.9.0` |
 | `docsUrl` | https://marketplace.visualstudio.com/items?itemName=RafaelArvelo.vsplotter |
-| `installUrl` | https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_command-line-extension-management |
-| `macosMethods` | `sedea-cli-install-extension` |
-| `linuxMethods` | `sedea-cli-install-extension` |
-| `windowsMethods` | `sedea-cli-install-extension` |
+| `installUrl` | https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage |
+| `macosMethods` | `marketplace-vsix-sedea-cli` |
+| `linuxMethods` | `marketplace-vsix-sedea-cli` |
+| `windowsMethods` | `marketplace-vsix-sedea-cli` |
 
 Probe and dry-run:
 
@@ -95,12 +96,14 @@ Probe and dry-run:
 "<sedea-cli>" --list-extensions --show-versions
 ```
 
-Match `RafaelArvelo.vsplotter` case-insensitively. The extension is currently
-listed on Microsoft Visual Studio Marketplace and may not exist in Sedea's
-configured Open VSX gallery. The install mission must first try the Sedea CLI
-against the configured gallery. If unavailable, stop and offer a trusted local
-VSIX path or skip; never silently install it into another editor or download an
-unverified VSIX.
+Match `RafaelArvelo.vsplotter` case-insensitively and require version ≥ `1.9.0`.
+Sedea's configured Open VSX gallery does not contain this extension. Therefore
+`marketplace-vsix-sedea-cli` is the sole installation method: download the
+pinned VSIX from the official Microsoft Visual Studio Marketplace URL in this
+registry, then install that local file with the resolved Sedea CLI. Do not try
+an extension-id gallery install, ask the user to locate a VSIX, use a third-party
+downloader, substitute another plotting extension, or install into another
+editor.
 
 ## Sedea CLI resolution
 
@@ -110,9 +113,31 @@ unverified VSIX.
 | Linux | `sedea` on PATH, or user-supplied Sedea CLI |
 | Windows | `sedea` on PATH, or user-supplied Sedea CLI |
 
-Install after consent:
+Install after consent on macOS or Linux:
 
-```text
-"<sedea-cli>" --install-extension "RafaelArvelo.vsplotter" --force
+```bash
+tmp_dir="$(mktemp -d)"
+vsix="$tmp_dir/RafaelArvelo.vsplotter-1.9.0.vsix"
+curl -fsSL --compressed \
+  -o "$vsix" \
+  "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage"
+"<sedea-cli>" --install-extension "$vsix" --force
+rm -rf "$tmp_dir"
 ```
+
+Install after consent on Windows PowerShell:
+
+```powershell
+$vsix = Join-Path $env:TEMP "RafaelArvelo.vsplotter-1.9.0.vsix"
+Invoke-WebRequest `
+  -Uri "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/RafaelArvelo/vsextensions/vsplotter/1.9.0/vspackage" `
+  -OutFile $vsix
+& "<sedea-cli>" --install-extension $vsix --force
+Remove-Item -LiteralPath $vsix -Force
+```
+
+Run the probe again and require `rafaelarvelo.vsplotter@<version>` with version
+≥ `1.9.0`. A download, install, or verification failure is a failed install;
+route to the mission's retry/partial/abort checkpoint without inventing another
+method.
 

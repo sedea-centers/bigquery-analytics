@@ -55,8 +55,10 @@ surface but report them separately. Probe VS Plotter only in Sedea.
 USER_CHECKPOINT — choose install, existing path, skip, or abort for missing tools.
 
 Use each registry row's sole OS method. Do not offer package-manager or install
-directory choices. For VS Plotter gallery failure, offer a trusted local VSIX
-path or skip; do not install into another editor.
+directory choices. For VS Plotter, use only the registry's pinned official
+Marketplace VSIX download followed by local-file installation through the Sedea
+CLI. Do not try Open VSX, request a user-supplied VSIX, use a third-party
+downloader, substitute another extension, or install into another editor.
 
 ### 4. Install and dry-run
 
@@ -68,7 +70,9 @@ path or skip; do not install into another editor.
   USER_CHECKPOINT retry/partial/abort.
 
 Deduplicate the shared SDK install. On Unix, create non-destructive `~/bin`
-symlinks for `gcloud` and `bq`. Run every applicable registry dry-run.
+symlinks for `gcloud` and `bq`. Install VS Plotter exactly as specified by
+`marketplace-vsix-sedea-cli`, including its pinned version and official URL.
+Run every applicable registry dry-run.
 
 USER_CHECKPOINT — retry failed tool installation, accept partial result, or abort.
 
