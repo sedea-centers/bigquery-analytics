@@ -188,13 +188,33 @@ USER_CHECKPOINT — run query, revise SQL, add/adjust LIMIT or filters, or abort
 ### 10. Execute and export CSV
 
 For a safely sized result, run the exact saved SQL with CSV output. For a large
-result, materialize then `bq extract`. Write only under `inputs.resultsPath`,
-using a timestamped or approved filename. Never overwrite an existing CSV
-silently.
+result, materialize then `bq extract`. Write only under `inputs.resultsPath` on
+the **main hosting clone** (`HOSTING_ROOT` from MCP `sedea_get_hosting_root`).
+Using a timestamped or approved filename. Never overwrite an existing CSV
+silently. **Forbidden:** writing results into `WORKTREE_ROOT` or copying CSVs
+into a hosting worktree to make relative links resolve.
+
+**Clickable path contract (binding):** Mission Host resolves relative markdown /
+file links against the **active** workspace folder. When a hosting worktree is
+mounted, repo-relative paths open under the worktree — not under
+`HOSTING_ROOT`, where gitignored `results/` CSVs actually live.
+
+1. Resolve **`HOSTING_ROOT`** via `sedea_get_hosting_root` before presenting any
+   openable CSV (or SQL) path.
+2. Set **`csvPath`** to the **absolute** path:
+   `HOSTING_ROOT` + `/` + repo-relative results file under `inputs.resultsPath`.
+3. Prefer the same absolute form for **`sqlPath`** when linking for
+   open-in-editor.
+4. **Forbidden** in `displayMarkdown`, chat, and other clickable surfaces: bare
+   repo-relative paths (for example `analytics/.../results/foo.csv`) whenever a
+   worktree folder may be mounted.
+5. Repo-relative paths may appear only when explicitly labeled **non-clickable**
+   ledger text; prefer absolute for both `csvPath` and `sqlPath` to avoid
+   ambiguity.
 
 Capture for the terminal summary:
 
-- `sqlPath`, `csvPath`;
+- `sqlPath`, `csvPath` (absolute `HOSTING_ROOT` paths for clickable use);
 - data row count (header excluded);
 - byte size;
 - job id and bytes processed when available;
@@ -245,8 +265,8 @@ Call MCP `mission_control_send_agent_result` with `status`, `summary`,
 | `datasetId` | string |
 | `querySlug` | string |
 | `queryPurpose` | string |
-| `sqlPath` | string |
-| `csvPath` | string |
+| `sqlPath` | string — absolute under `HOSTING_ROOT` when used as an openable link |
+| `csvPath` | string — **absolute** under `HOSTING_ROOT` (see §10 clickable path contract) |
 | `rowCount` | number |
 | `bytesProcessed` | number or null |
 | `jobId` | string or empty |
