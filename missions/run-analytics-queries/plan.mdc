@@ -103,12 +103,15 @@ the child fails or abandons.
 2. Explore tables/schemas/previews/saved SQL with the user.
 3. Generate + approve GoogleSQL; save under `queriesPath`.
 4. Dry-run → LIMIT/safety → full run → save CSV under `resultsPath`.
-5. When SQL/schema is hosting-tracked: after §8 **approve and save** (or
+5. Register saved SQL and result CSVs on **this child lane** via MCP
+   `mission_control_update_relevant_documents` (Relevant Links) — see skill
+   §§3 / 8 / 10.
+6. When SQL/schema is hosting-tracked: after §8 **approve and save** (or
    explicit schema-ship approval), run **transparent** worktree → commit →
    push → PR → merge → cleanup with **no** further ship-consent gates
    (Sedea rules **0** / **6** / **7**; Path A only; worktree/PR not
    user-facing — outcome is “saved in the primary hosting repo”).
-6. Terminal **summary only** via `mission_control_send_agent_result`.
+7. Terminal **summary only** via `mission_control_send_agent_result`.
 
 ### 4. Query ledger, repeat, or resolve
 
