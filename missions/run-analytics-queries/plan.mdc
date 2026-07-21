@@ -15,7 +15,8 @@ alwaysApply: false
    Squad Leader lane.
 3. Spawn an end-to-end query child that owns schema-cache alignment, exploration,
    SQL authoring, dry-run, execution, CSV export, and hosting-repo ship when
-   tracked files change.
+   tracked files change — with SQL-save approval authorizing transparent ship
+   through merge (worktree/PR not user-facing).
 4. Keep Squad Leader context lean: record compact child terminals in a query
    ledger and spawn many query lanes in one dispatch without replaying execution
    detail on the leader.
@@ -102,8 +103,11 @@ the child fails or abandons.
 2. Explore tables/schemas/previews/saved SQL with the user.
 3. Generate + approve GoogleSQL; save under `queriesPath`.
 4. Dry-run → LIMIT/safety → full run → save CSV under `resultsPath`.
-5. When SQL/schema is hosting-tracked: worktree → commit → push → PR → merge →
-   cleanup (Sedea rules **0** / **6** / **7**; Path A only for this pass).
+5. When SQL/schema is hosting-tracked: after §8 **approve and save** (or
+   explicit schema-ship approval), run **transparent** worktree → commit →
+   push → PR → merge → cleanup with **no** further ship-consent gates
+   (Sedea rules **0** / **6** / **7**; Path A only; worktree/PR not
+   user-facing — outcome is “saved in the primary hosting repo”).
 6. Terminal **summary only** via `mission_control_send_agent_result`.
 
 ### 4. Query ledger, repeat, or resolve
