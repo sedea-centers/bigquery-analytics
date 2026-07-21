@@ -113,6 +113,17 @@ List readable `*.sql` files under `inputs.queriesPath`. For each, show filename
 and a short purpose inferred from leading comments/query shape. Do not execute a
 saved query merely to classify it.
 
+When the user **inspects** a saved query, resolve its **absolute** path under
+`HOSTING_ROOT` (same clickable-path rules as §10) and call MCP
+`mission_control_update_relevant_documents` with:
+
+```json
+{ "paths": [{ "path": "<absolute-sqlPath>", "kind": "other", "label": "Query: <filename-or-slug>" }] }
+```
+
+Registration failure must **not** block exploration; note it in recap and
+continue.
+
 USER_CHECKPOINT — inspect a saved query, continue dataset discovery, or describe
 a new question.
 
@@ -192,6 +203,19 @@ intentionally local under a gitignored workspace, state that and plan
 when the user only asked to store without running — still finish §11 before
 terminal).
 
+**Relevant Links (binding):** After a successful save, resolve absolute
+`sqlPath` via `sedea_get_hosting_root` (same form as §10) and call MCP
+`mission_control_update_relevant_documents` on **this child lane**:
+
+```json
+{ "paths": [{ "path": "<absolute-sqlPath>", "kind": "other", "label": "Query: <query-slug>" }] }
+```
+
+Do **not** block dry-run/execute when registration fails — set
+`relevantDocumentsRegistered: partial` or `skipped` and continue. **Forbidden:**
+hand-editing Relevant Links / bundle JSON; registering out-of-workspace paths;
+Squad Leader registering child artifacts (this lane owns the call).
+
 ### 9. Cost/safety preflight (dry-run)
 
 Run `bq query --use_legacy_sql=false --dry_run` against the **exact** saved
@@ -233,6 +257,24 @@ Capture for the terminal summary:
 - byte size;
 - job id and bytes processed when available;
 - whether LIMIT/truncation/materialization applied.
+
+**Relevant Links (binding):** After a successful CSV write, call MCP
+`mission_control_update_relevant_documents` on **this child lane** with absolute
+`csvPath` (and include `sqlPath` in the same call when both exist this turn):
+
+```json
+{
+  "paths": [
+    { "path": "<absolute-sqlPath>", "kind": "other", "label": "Query: <query-slug>" },
+    { "path": "<absolute-csvPath>", "kind": "other", "label": "Result: <query-slug>" }
+  ]
+}
+```
+
+Omit the SQL entry when already registered in §8 (host dedupes). Registration
+failure must **not** block §11 ship or terminal — set
+`relevantDocumentsRegistered` accordingly. **Forbidden:** writing CSVs into
+`WORKTREE_ROOT` so links resolve; bare repo-relative paths in `paths`.
 
 ### 11. Hosting-repo ship (when tracked) — transparent cadence
 
@@ -316,6 +358,7 @@ Call MCP `mission_control_send_agent_result` with `status`, `summary`,
 | `continuationStatus` | `terminal` |
 | `relevantTables` | array |
 | `openAssumptions` | array |
+| `relevantDocumentsRegistered` | `true` \| `partial` \| `skipped` — MCP Relevant Links registration outcome for SQL/CSV |
 
 Use `errors: []` when none. Omit credential and token material.
 
