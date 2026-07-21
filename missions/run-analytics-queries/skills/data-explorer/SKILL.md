@@ -7,8 +7,8 @@ description: >-
 designation:
   allowed: >-
     Detect/refresh schema cache; explore tables and saved SQL; author and run
-    approved GoogleSQL; export CSV; ship tracked hosting analytics files via
-    worktree/PR when required
+    approved GoogleSQL; export CSV; transparently ship tracked hosting analytics
+    files through merge when SQL-save approval authorizes the cadence
   forbidden: >-
     Configure GCP IAM or service accounts; execute unapproved production
     mutations; rewrite center rules; call mission_control_propose_dispatch_resolution
@@ -64,8 +64,10 @@ warmUpRules:
 
 Start by telling the user that they do not need to know the schema or formulate
 perfect SQL. **This child lane owns the full cycle** through CSV export and any
-required hosting-repo ship. The Squad Leader receives only a compact terminal
-summary — keep execution detail on this lane.
+required hosting-repo ship. When the user approves saving tracked SQL, ship
+through merge runs transparently (worktree/PR not user-facing). The Squad
+Leader receives only a compact terminal summary — keep execution detail on
+this lane.
 
 **Forbidden:** resolving the dispatch; handing unfinished “query intent only”
 back to the Squad Leader for dry-run/execute/ship.
@@ -170,13 +172,25 @@ Draft:
 - deterministic ordering when meaningful;
 - LIMIT policy for the production run.
 
-USER_CHECKPOINT — approve query, revise query, reuse an existing saved query,
-or abandon.
+USER_CHECKPOINT — approve and save query (also authorizes transparent hosting
+ship through merge when tracked) · revise query · reuse an existing saved
+query · abandon.
+
+**Save approval = transparent ship consent (binding):** When the user picks
+**approve and save** for a **hosting-tracked** SQL path, that same pick
+authorizes §11 end-to-end (worktree → commit → push → PR → review → merge →
+cleanup) with **no** further worktree, pipeline-depth, PR-review, or merge
+consent modals. Worktree and PR mechanics are **agent-internal** — user-facing
+copy must describe the outcome as the query landing in the **primary hosting
+repo**, not as a multi-step git/PR workflow.
 
 Save the approved body as `<queriesPath>/<query-slug>.sql`. Set
 `developerApprovedQuery: true` only after this gate. If the SQL file is
 intentionally local under a gitignored workspace, state that and plan
-`shipStatus: skipped-local` for §11. If tracked, include it in §11 ship.
+`shipStatus: skipped-local` for §11 (no transparent ship). If tracked, run
+§11 after dry-run/execute when those steps complete (or immediately after save
+when the user only asked to store without running — still finish §11 before
+terminal).
 
 ### 9. Cost/safety preflight (dry-run)
 
@@ -220,24 +234,47 @@ Capture for the terminal summary:
 - job id and bytes processed when available;
 - whether LIMIT/truncation/materialization applied.
 
-### 11. Hosting-repo ship (when tracked)
+### 11. Hosting-repo ship (when tracked) — transparent cadence
 
 When §2 refreshed tracked `data-schema/` and/or §8 saved tracked SQL under the
-hosting repo:
+hosting repo **and** §8 granted save approval (or schema-only ship was
+explicitly approved at the §2 refresh gate):
+
+**Mission-owned git (binding):** This skill owns the hosting ship for this
+pass. Do **not** offer rule **6** Before-the-first-write or pipeline-depth
+modals. §8 **approve and save** (or an explicit schema-ship approval) is the
+sole consent for worktree create/attach, `commit-push-pr`, inline `pr-review`,
+and agent `approve-merge-pr` / merge for **these named paths**.
+
+**Transparent UX (binding):** Do **not** present USER_CHECKPOINTs for
+create-worktree, commit/push/PR depth, start-pr-review, or merge after that
+consent. Do **not** narrate worktree names, PR numbers, or review loops as the
+primary user story. Prefer one outcome line: the SQL (and bundled schema when
+applicable) is now in the **primary hosting repo** at the absolute
+`HOSTING_ROOT` path. Keep `prUrl` / `prNumber` in terminal `outputs` for the
+Squad Leader ledger only.
+
+**Procedure (auto-advance):**
 
 1. Reuse `inputs.hostingWorktreeHint` when it is an absolute active
-   `WORKTREE_ROOT` for this pass; otherwise run Hosting-repo ship cadence
-   (center `worktree-setup.sh` → MCP `sedea_add_worktree_folder` → edits under
-   `WORKTREE_ROOT`) per Sedea rules **0** / **6** / **7**.
+   `WORKTREE_ROOT` for this pass; otherwise run center `worktree-setup.sh` →
+   MCP `sedea_add_worktree_folder` → copy/write named tracked files under
+   `WORKTREE_ROOT` per Sedea rules **0** / **6** / **7**.
 2. Stage **named paths only** — never `git add .`.
-3. Pipeline depth via structured choice (commit / commit+push / commit+push+PR)
-   per rule **6**.
-4. After PR open, run inline `pr-review` when the hosting cadence requires it;
-   prefer developer merge (`merged-pr-proceed`) unless same-turn
-   `approve-merge-pr` (or equivalent) is selected.
-5. Post-merge: MCP `sedea_remove_worktree_folder` then center
+3. `commit-push-pr` from `WORKTREE_ROOT` without a pipeline-depth modal.
+4. Run inline `pr-review` to completion when required; do **not** open
+   developer pick loops for clean review. On Must/Should blockers only: open
+   **one** recovery USER_CHECKPOINT (fix / defer / abandon ship) — not the
+   full cadence restart.
+5. Merge into the default branch using agent `gh pr review --approve` +
+   `gh pr merge` authorized by the §8 save (or schema-ship) consent — treat
+   that prior pick as same-pass `approve-merge-pr` for **this** PR. If merge
+   is blocked (CI, permissions, conflicts), open **one** recovery gate; set
+   `shipStatus: opened` or `failed` and keep `prUrl` / `prNumber`.
+6. Post-merge: MCP `sedea_remove_worktree_folder` then center
    `worktree-cleanup.sh` **only** for Path A–owned `WORKTREE_ROOT`.
-6. Set `shipStatus` / `schemaShipStatus` / `prUrl` / `prNumber` accordingly.
+7. Set `shipStatus: merged` on success (else `opened` / `failed`); set
+   `schemaShipStatus` / `prUrl` / `prNumber` accordingly.
 
 When nothing is hosting-tracked, set `shipStatus: skipped-local` and
 `schemaShipStatus: none` or `skipped` as appropriate — do not invent git work.
