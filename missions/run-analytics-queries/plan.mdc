@@ -90,12 +90,21 @@ the child fails or abandons.
 
 1. Compile spawn `inputs` from §2 binding + §1 `inquiry`.
 2. Set `name` / `description` to the inquiry topic (not a generic placeholder).
-3. Emit exactly one `mission_control_spawn_agent` for the assigned skill.
-4. Open a **next-step resume** structured choice (**#external-wait**) before
+3. **Dispatch title (binding):** Call MCP
+   `mission_control_update_dispatch_display` with non-empty `dispatchTitle`
+   (≤64) derived from the inquiry topic — the same signal used for child
+   `name` / `description`. Optional `dispatchDescription` /
+   `dispatchHoverDescription` may add brief stable scope. **Skip** when
+   chrome already matches. **Forbidden:** status or milestone strings
+   (`waiting`, `PR opened`, ship phase labels); child lanes calling this
+   tool. See `.sedea/centers/sedea/rules/9_display-metadata-authority.mdc`
+   § *Dispatch title content*.
+4. Emit exactly one `mission_control_spawn_agent` for the assigned skill.
+5. Open a **next-step resume** structured choice (**#external-wait**) before
    ending the leader turn — do not prose-only announce wait; do not duplicate
    child gates on the leader.
-5. Stop until Mission Control delivers `mission_control_send_agent_result`.
-6. On terminal success, continue §4. On failure/abandon, open the gate above.
+6. Stop until Mission Control delivers `mission_control_send_agent_result`.
+7. On terminal success, continue §4. On failure/abandon, open the gate above.
 
 **Child owns (binding)** — see skill body for executable steps:
 
@@ -126,6 +135,18 @@ the child fails or abandons.
 USER_CHECKPOINT — spawn another query child, revise last inquiry and re-spawn,
 or resolve the dispatch.
 
+**Procedure**
+
+1. Merge the child terminal into the query ledger (table below).
+2. **Dispatch title refresh (binding):** When `outputs.queryPurpose` (or a
+   clearer topic string from the child) is present and differs from current
+   dispatch chrome, call MCP `mission_control_update_dispatch_display` with
+   `dispatchTitle` derived from that topic (≤64). **Skip** when already
+   accurate. Same forbid list as §3 step 3 (no status crawls; Squad Leader
+   only).
+3. Open the gate above — spawn another query child (§3), revise inquiry and
+   re-spawn, or resolve.
+
 **Query ledger row (per terminal child)**
 
 | Field | Source |
@@ -140,6 +161,7 @@ or resolve the dispatch.
 
 **Forbidden on the Squad Leader:** re-running drift refresh, SQL authoring,
 dry-run, execute, or git ship after a child terminal — acknowledge the ledger
-row and offer the gate above only.
+row, refresh dispatch title when the query topic is clearer, and offer the
+gate above only.
 
 Only the Squad Leader calls `mission_control_propose_dispatch_resolution`.
