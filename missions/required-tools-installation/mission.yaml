@@ -1,8 +1,10 @@
 name: Required Tools Installation
 description: >-
-  Install and verify gcloud, bq, and VS Plotter, then configure durable local
-  BigQuery service-account access without repeated user-token login.
+  Install, upgrade when available, and verify gcloud, bq, and VS Plotter, then
+  configure durable local BigQuery service-account access without repeated
+  user-token login.
 commands:
   - phrase: install required tools
-    description: Install, verify, and configure BigQuery Analytics tooling.
+    description: >-
+      Install or upgrade, verify, and configure BigQuery Analytics tooling.
 
