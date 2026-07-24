@@ -22,6 +22,11 @@ inputs:
     required: false
   defaultNewProjectId:
     type: string
+    description: >-
+      Org-prefixed seed for create-new-project (shape `<org-prefix>-<seed>`,
+      e.g. `sedea-…`). Hint only — child still confirms before
+      `gcloud projects create`. Do not pass a bare shared id known to be taken
+      (for example `sedea-agent-squad` alone).
     required: true
   serviceAccountPreference:
     type: string
@@ -115,8 +120,28 @@ USER_CHECKPOINT — **Select existing project** · **Create new project** ·
   present accessible project ids in a USER_CHECKPOINT for the user to pick.
   Validate the chosen id; prefer `inputs.existingProjectId` only when it still
   appears in the live list and the user confirms it.
-- **Create new project:** confirm the legal globally unique project id before
-  `gcloud projects create`.
+- **Create new project:** GCP project **ids are globally unique**. Suggest and
+  confirm an id **prefixed with the Google organization name** before
+  `gcloud projects create` (example prefix `sedea-` → `sedea-<seed>`). Do **not**
+  default to a bare shared id such as `sedea-agent-squad` alone — that form is
+  often already taken.
+
+**Create-new-project id procedure (binding):**
+
+1. Resolve **org prefix** from the user’s Google organization (Console org
+   selector or user confirmation). Normalize to lowercase hyphenated GCP
+   project-id rules; ensure the suggestion starts with that prefix plus `-`
+   (example: `sedea-`).
+2. Build suggested id = `<org-prefix>-<seed>`. Prefer seed from
+   `inputs.defaultNewProjectId` when it already starts with the org prefix;
+   otherwise strip a conflicting bare seed and re-prefix. Else derive seed from
+   hosting-repo basename or a short unique suffix. Never propose a known-taken
+   bare id without the org prefix + a differentiating seed.
+3. USER_CHECKPOINT — **Use suggested id** · **Edit id** · **Abort** ·
+   **More details for option _**.
+4. On `gcloud projects create` failure for uniqueness (name taken), do **not**
+   retry the same id. Re-open USER_CHECKPOINT with a new suggestion (suffix or
+   alternate seed under the same org prefix).
 
 USER_CHECKPOINT — confirm project create when a new project is requested; or
 pick from the live `gcloud` project list when selecting existing.
