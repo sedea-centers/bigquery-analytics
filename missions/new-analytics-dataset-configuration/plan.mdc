@@ -156,22 +156,32 @@ brand-new BigQuery dataset; inventing a new default workspace when a valid
 ### 4. Apply IAM
 
 - **Type:** Simple skill execution
-- **Intent:** Grant the service account the selected access.
-- **Inputs:** Project, dataset, service account, existing/new status, requested
-  read-only vs read-write mode.
+- **Intent:** Grant the service account the access required for this binding.
+- **Inputs:** Project, dataset, service account, path mode (`create-new` |
+  `existing`), and for **existing** only: requested read-only vs read-write.
 - **Expected output:** Applied project and dataset roles.
 - **Next-step resolution:** IAM verified → §5; failure → USER_CHECKPOINT.
 
 Project roles come from Required Tools Installation. For the dataset:
 
-- Existing read-only: `roles/bigquery.dataViewer`.
-- Existing read-write: `roles/bigquery.dataEditor`.
-- Newly created/administered: `roles/bigquery.dataOwner`.
+| Path | Dataset role | Role pick |
+|------|--------------|-----------|
+| **Create new** (§3 create) | `roles/bigquery.dataOwner` only | **None** — apply automatically |
+| **Existing** (select existing) | `roles/bigquery.dataViewer` (read-only) or `roles/bigquery.dataEditor` (read-write) | USER_CHECKPOINT below |
+
+**Create-new path (binding):** After `bq mk --dataset`, grant
+`roles/bigquery.dataOwner` to the durable service account on that dataset
+**without** asking which role. **Forbidden** on this path: offering or applying
+`roles/bigquery.admin` (or project-wide Admin), `roles/bigquery.dataViewer`,
+`roles/bigquery.dataEditor`, or any role-choice modal.
 
 Use the BigQuery dataset IAM policy APIs/commands supported by the installed
 CLI. Do not default to project-wide BigQuery Admin.
 
-USER_CHECKPOINT — choose read-only, read-write, or dataset-owner access.
+USER_CHECKPOINT — on **existing** path only: choose read-only or read-write
+access. (Omit this checkpoint entirely on create-new.)
+
+USER_CHECKPOINT — IAM apply failed: retry · abort · More details for option _.
 
 ### 5. Resolve local workspace
 
@@ -239,9 +249,22 @@ USER_CHECKPOINT — confirm `data-schema` path and approve fetch/write.
 - **Type:** Simple skill execution
 - **Intent:** Write all tracked hosting configuration in one worktree/PR.
 - **Inputs:** Registry row, paths (including `dataSchemaPath`), project/dataset
-  /IAM details, schema artifacts from §6.
-- **Expected output:** Merged hosting configuration and cleaned worktree.
-- **Next-step resolution:** Merge/cleanup → §8.
+  /IAM details, schema artifacts from §6; prior USER_CHECKPOINT input approvals
+  from §§3–6 (create confirm, workspace paths, schema path, existing-path IAM
+  when applicable).
+- **Expected output:** Opened hosting-repo PR; after merge, cleaned worktree.
+- **Next-step resolution:** After merge/cleanup → §8.
+
+**Input approval = ship consent (binding):** Completing the input gates in
+§§3–6 (and existing-path §4 when used) authorizes this pass to: create/attach
+the hosting worktree, write tracked files, and run **`commit-push-pr`** without
+a further USER_CHECKPOINT. The PR is the **vehicle** to land configuration in
+the primary hosting repo — **not** a separate approval gate.
+
+**Forbidden under USER_CHECKPOINT on this step:** approve hosting diff; choose
+git pipeline depth (`commit-only` / `commit-push` / `commit-push-pr`); approve
+or “accept” the PR content; start a PR-review approval cycle as a blocker before
+open.
 
 Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 
@@ -253,13 +276,13 @@ Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 5. Create/update `.sedea/bigquery-analytics.yaml` using the rule-00 schema
    (include optional `dataSchemaPath`; default `<localPath>/data-schema`).
 6. Never write the credential JSON into the worktree.
-7. Present the diff and use the mission-owned commit/push/PR gate.
-8. After PR merge, detach and clean only this mission's worktree.
+7. Commit, push, and open the PR (`commit-push-pr`) automatically for this pass.
+8. After PR **merge**, detach and clean only this mission's worktree.
 
-USER_CHECKPOINT — approve hosting configuration diff and choose git pipeline.
-
-After PR creation, use the center's required PR-review cadence when available;
-otherwise wait for merge with an external-wait resume modal.
+After the PR exists, open **#external-wait** structured choice for **merge
+resume only** (e.g. check PR status · merged — continue cleanup · defer) —
+**not** a USER_CHECKPOINT to approve the PR. Developer merges on GitHub (or an
+explicit same-turn approve+merge pick if platform policy requires it).
 
 ### 8. Verify binding
 
