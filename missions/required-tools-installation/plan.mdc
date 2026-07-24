@@ -120,7 +120,11 @@ Compile spawn inputs, then call `mission_control_spawn_agent`. Do **not** requir
 a concrete `existingProjectId` on the leader when the path is “select existing”
 — the **child skill** owns: authenticate `gcloud` when needed → list projects via
 `gcloud` → user pick or create. Leader may pass `projectPreference` /
-`existingProjectId` as hints only. The service-account id must be 6–30
+`existingProjectId` as hints only. When compiling **`defaultNewProjectId`**, use
+an **org-prefixed** seed (`<org-prefix>-<seed>`, e.g. `sedea-…`) — GCP project
+ids are **globally unique**; do **not** pass a bare shared id such as
+`sedea-agent-squad` alone. The child still confirms (and may re-suggest on name
+taken) before `gcloud projects create`. The service-account id must be 6–30
 characters. Default credential path:
 `~/.config/gcloud/<hosting-repo-basename>-sedea-bigquery.json`.
 
