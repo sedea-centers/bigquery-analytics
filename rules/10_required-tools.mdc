@@ -16,13 +16,20 @@ paths, or installation methods.
 
 - Probe a user-supplied path first, then the bare command on `PATH`, then the
   canonical install path only to diagnose an incomplete installation.
-- Installation requires structured user consent.
+- Installation **and upgrade** require structured user consent.
+- Classify each tool as `ok`, `upgrade-available`, or `missing`:
+  - **`missing`** — not found on PATH / canonical path / Sedea extensions list.
+  - **`upgrade-available`** — installed, but version is below `minVersion`,
+    **or** the registry’s sole OS method reports a newer candidate than the
+    installed version (SDK component updates; Marketplace VSIX pin newer than
+    installed). Legacy probe label `outdated` maps to `upgrade-available`.
+  - **`ok`** — installed and no upgrade offer applies.
 - macOS and Linux use the official Google Cloud SDK archive under
   `~/google-cloud-sdk`; expose `gcloud` and `bq` through non-destructive symlinks
   under `~/bin`.
 - Windows uses the official Google Cloud SDK installer/default local path.
 - `bq` ships with the Google Cloud SDK. Never perform a second SDK installation
-  merely because `bq` is missing; repair/install the shared SDK once.
+  merely because `bq` is missing; repair/install/upgrade the shared SDK once.
 - Resolve extensions against the installed **Sedea** application, not another
   editor profile.
 
@@ -44,11 +51,19 @@ paths, or installation methods.
 | `macosMethods` | `curl-sdk` |
 | `linuxMethods` | `curl-sdk` |
 | `windowsMethods` | `official-sdk-installer` |
+| `macosUpgradeMethods` | `gcloud-components-update` |
+| `linuxUpgradeMethods` | `gcloud-components-update` |
+| `windowsUpgradeMethods` | `gcloud-components-update` |
 
 Dry-runs:
 
 1. `gcloud version` — exit 0 and version ≥ `450.0.0`.
 2. `gcloud help` — exit 0.
+
+Upgrade detection: when `gcloud` is installed, treat as `upgrade-available` if
+version < `minVersion`, or if `gcloud components list --filter=state:UpdateAvailable`
+(or equivalent non-interactive components-update probe) shows pending updates.
+Upgrade after consent: `gcloud components update` (shared SDK; also covers `bq`).
 
 ### `bq`
 
@@ -66,14 +81,18 @@ Dry-runs:
 | `macosMethods` | `gcloud-sdk-bundled` |
 | `linuxMethods` | `gcloud-sdk-bundled` |
 | `windowsMethods` | `gcloud-sdk-bundled` |
+| `macosUpgradeMethods` | `gcloud-sdk-bundled` |
+| `linuxUpgradeMethods` | `gcloud-sdk-bundled` |
+| `windowsUpgradeMethods` | `gcloud-sdk-bundled` |
 
 Dry-runs:
 
 1. `bq version` — exit 0.
 2. `bq help` — exit 0.
 
-`gcloud-sdk-bundled` means install or repair the shared SDK using the `gcloud`
-row; it is not a separate package-manager choice.
+`gcloud-sdk-bundled` means install, repair, or upgrade the shared SDK using the
+`gcloud` row; it is not a separate package-manager choice. When `gcloud` is
+`upgrade-available`, report `bq` the same unless `bq` is missing from PATH.
 
 ### `vsplotter`
 
@@ -89,6 +108,9 @@ row; it is not a separate package-manager choice.
 | `macosMethods` | `marketplace-vsix-sedea-cli` |
 | `linuxMethods` | `marketplace-vsix-sedea-cli` |
 | `windowsMethods` | `marketplace-vsix-sedea-cli` |
+| `macosUpgradeMethods` | `marketplace-vsix-sedea-cli` |
+| `linuxUpgradeMethods` | `marketplace-vsix-sedea-cli` |
+| `windowsUpgradeMethods` | `marketplace-vsix-sedea-cli` |
 
 Probe and dry-run:
 
@@ -98,12 +120,17 @@ Probe and dry-run:
 
 Match `RafaelArvelo.vsplotter` case-insensitively and require version ≥ `1.9.0`.
 Sedea's configured Open VSX gallery does not contain this extension. Therefore
-`marketplace-vsix-sedea-cli` is the sole installation method: download the
-pinned VSIX from the official Microsoft Visual Studio Marketplace URL in this
-registry, then install that local file with the resolved Sedea CLI. Do not try
-an extension-id gallery install, ask the user to locate a VSIX, use a third-party
-downloader, substitute another plotting extension, or install into another
-editor.
+`marketplace-vsix-sedea-cli` is the sole install **and upgrade** method: download
+the pinned VSIX from the official Microsoft Visual Studio Marketplace URL in
+this registry, then install that local file with the resolved Sedea CLI
+(`--force` for upgrades). Do not try an extension-id gallery install, ask the
+user to locate a VSIX, use a third-party downloader, substitute another plotting
+extension, or install into another editor.
+
+Upgrade detection: when the extension is installed at a version **below**
+`installVersion` / `minVersion`, report `upgrade-available`. Authors bump
+`installVersion`, `minVersion`, and `installUrl` in this registry when a newer
+Marketplace pin should be offered on the next mission run.
 
 ## Sedea CLI resolution
 
@@ -137,7 +164,7 @@ Remove-Item -LiteralPath $vsix -Force
 ```
 
 Run the probe again and require `rafaelarvelo.vsplotter@<version>` with version
-≥ `1.9.0`. A download, install, or verification failure is a failed install;
-route to the mission's retry/partial/abort checkpoint without inventing another
-method.
+≥ `1.9.0`. A download, install, upgrade, or verification failure is a failed
+install/upgrade; route to the mission's retry/partial/abort checkpoint without
+inventing another method.
 

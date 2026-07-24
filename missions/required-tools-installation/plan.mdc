@@ -1,7 +1,8 @@
 ---
 description: >-
-  Install and verify BigQuery Analytics tools, then provision durable local
-  gcloud, project, service-account, IAM, and credential configuration.
+  Install, upgrade when available, and verify BigQuery Analytics tools, then
+  provision durable local gcloud, project, service-account, IAM, and credential
+  configuration.
 alwaysApply: false
 ---
 
@@ -9,8 +10,8 @@ alwaysApply: false
 
 ## Objectives
 
-1. Install and verify `gcloud`, `bq`, and `RafaelArvelo.vsplotter` from
-   `rules/10_required-tools.mdc`.
+1. Install, **upgrade when available**, and verify `gcloud`, `bq`, and
+   `RafaelArvelo.vsplotter` from `rules/10_required-tools.mdc`.
 2. Offer an existing or new GCP project and service account.
 3. Store service-account credentials locally with restrictive permissions.
 4. Configure an isolated gcloud configuration for routine service-account use,
@@ -38,43 +39,57 @@ dispatch display with a stable BigQuery tools/configuration title.
 - **Type:** Simple skill execution
 - **Intent:** Classify required tools.
 - **Inputs:** `rules/10_required-tools.mdc`; optional user paths.
-- **Expected output:** Per-tool `ok` / `outdated` / `missing`.
-- **Next-step resolution:** All ok → §5; gaps → §3.
+- **Expected output:** Per-tool `ok` / `upgrade-available` / `missing`
+  (map legacy `outdated` below `minVersion` into `upgrade-available`).
+- **Next-step resolution:** All `ok` → §5; any `missing` or
+  `upgrade-available` → §3.
 
 Read the registry completely. Probe `gcloud` and `bq` as one SDK installation
 surface but report them separately. Probe VS Plotter only in Sedea.
 
-### 3. Confirm installation
+Probe each tool for presence and version. When installed, compare against
+registry `minVersion` **and** detect a newer available version via the
+registry’s sole OS method (SDK components / Marketplace VSIX pin). Report
+`upgrade-available` when an upgrade exists; `missing` when absent; `ok` when
+installed and no upgrade offer applies.
+
+### 3. Confirm install or upgrade
 
 - **Type:** Branching logic
-- **Intent:** Obtain per-tool install/override consent.
+- **Intent:** Obtain per-tool install **or upgrade** consent.
 - **Inputs:** Probe table.
-- **Expected output:** `install` / `use-path` / `skip` / `abort` per gap.
-- **Next-step resolution:** Install/override → §4; skip → §5; abort → §7.
+- **Expected output:** `install` / `upgrade` / `use-path` / `skip` / `abort`
+  per gap.
+- **Next-step resolution:** Install/upgrade/override → §4; skip → §5;
+  abort → §7.
 
-USER_CHECKPOINT — choose install, existing path, skip, or abort for missing tools.
+USER_CHECKPOINT — for each `missing` or `upgrade-available` tool: choose
+install, upgrade, existing path, skip, or abort.
 
 Use each registry row's sole OS method. Do not offer package-manager or install
 directory choices. For VS Plotter, use only the registry's pinned official
 Marketplace VSIX download followed by local-file installation through the Sedea
-CLI. Do not try Open VSX, request a user-supplied VSIX, use a third-party
-downloader, substitute another extension, or install into another editor.
+CLI (force-install for upgrades). Do not try Open VSX, request a user-supplied
+VSIX, use a third-party downloader, substitute another extension, or install
+into another editor. Deduplicate shared SDK upgrade for `gcloud`+`bq`.
 
-### 4. Install and dry-run
+### 4. Install or upgrade and dry-run
 
 - **Type:** Simple skill execution
-- **Intent:** Install only approved tools and verify them.
+- **Intent:** Install or upgrade only approved tools and verify them.
 - **Inputs:** §3 approvals and registry methods.
-- **Expected output:** Installation and dry-run results.
+- **Expected output:** Install/upgrade and dry-run results.
 - **Next-step resolution:** `gcloud` and `bq` usable → §5; hard failure →
   USER_CHECKPOINT retry/partial/abort.
 
-Deduplicate the shared SDK install. On Unix, create non-destructive `~/bin`
-symlinks for `gcloud` and `bq`. Install VS Plotter exactly as specified by
-`marketplace-vsix-sedea-cli`, including its pinned version and official URL.
-Run every applicable registry dry-run.
+Perform approved installs and upgrades. Deduplicate the shared SDK work. On
+Unix, create non-destructive `~/bin` symlinks for `gcloud` and `bq` when the
+SDK install/upgrade path applies. Install or upgrade VS Plotter exactly as
+specified by `marketplace-vsix-sedea-cli`, including its pinned version and
+official URL. Run every applicable registry dry-run after changes.
 
-USER_CHECKPOINT — retry failed tool installation, accept partial result, or abort.
+USER_CHECKPOINT — retry failed tool install/upgrade, accept partial result, or
+abort.
 
 ### 5. Configure durable BigQuery access
 
@@ -137,4 +152,3 @@ USER_CHECKPOINT — approve dispatch resolution.
 
 The Squad Leader calls `mission_control_propose_dispatch_resolution` with
 `resolved`, `partial`, `aborted`, or `abandoned`.
-
