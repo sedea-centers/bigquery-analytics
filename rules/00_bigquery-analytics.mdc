@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## Purpose
 
-This center helps developers configure BigQuery datasets, understand available
+This center helps users configure BigQuery datasets, understand available
 data, save reusable Standard SQL queries, and export query results to local CSV
 files.
 
@@ -31,7 +31,7 @@ must never print, commit, or copy those tokens or the private key into chat.
   account, key, and IAM bindings. Routine `bq` work uses the service account.
 - Use an isolated gcloud configuration named
   `sedea-bigquery-<hosting-repo-basename>` so this center does not overwrite the
-  operator's default gcloud configuration.
+  user's default gcloud configuration.
 - Activate the service account in that isolated configuration with
   `gcloud auth activate-service-account --key-file <path> --project <projectId>`.
   This is durable credential configuration, not a pasted token workflow.
