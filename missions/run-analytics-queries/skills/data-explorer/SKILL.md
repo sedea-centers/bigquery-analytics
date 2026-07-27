@@ -305,7 +305,7 @@ Squad Leader ledger only.
 2. Stage **named paths only** — never `git add .`.
 3. `commit-push-pr` from `WORKTREE_ROOT` without a pipeline-depth modal.
 4. Run inline `pr-review` to completion when required; do **not** open
-   developer pick loops for clean review. On Must/Should blockers only: open
+   user pick loops for clean review. On Must/Should blockers only: open
    **one** recovery USER_CHECKPOINT (fix / defer / abandon ship) — not the
    full cadence restart.
 5. Merge into the default branch using agent `gh pr review --approve` +

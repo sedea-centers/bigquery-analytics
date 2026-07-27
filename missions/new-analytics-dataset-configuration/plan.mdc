@@ -281,7 +281,7 @@ Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 
 After the PR exists, open **#external-wait** structured choice for **merge
 resume only** (e.g. check PR status · merged — continue cleanup · defer) —
-**not** a USER_CHECKPOINT to approve the PR. Developer merges on GitHub (or an
+**not** a USER_CHECKPOINT to approve the PR. User merges on GitHub (or an
 explicit same-turn approve+merge pick if platform policy requires it).
 
 ### 8. Verify binding
