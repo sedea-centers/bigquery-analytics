@@ -196,7 +196,7 @@ copy must describe the outcome as the query landing in the **primary hosting
 repo**, not as a multi-step git/PR workflow.
 
 Save the approved body as `<queriesPath>/<query-slug>.sql`. Set
-`developerApprovedQuery: true` only after this gate. If the SQL file is
+`userApprovedQuery: true` only after this gate. If the SQL file is
 intentionally local under a gitignored workspace, state that and plan
 `shipStatus: skipped-local` for §11 (no transparent ship). If tracked, run
 §11 after dry-run/execute when those steps complete (or immediately after save
@@ -354,7 +354,7 @@ Call MCP `mission_control_send_agent_result` with `status`, `summary`,
 | `shipStatus` | `none` \| `opened` \| `merged` \| `skipped-local` \| `failed` |
 | `prUrl` | string or empty |
 | `prNumber` | number or null |
-| `developerApprovedQuery` | boolean |
+| `userApprovedQuery` | boolean |
 | `continuationStatus` | `terminal` |
 | `relevantTables` | array |
 | `openAssumptions` | array |
