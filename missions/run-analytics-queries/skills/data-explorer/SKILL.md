@@ -286,7 +286,8 @@ explicitly approved at the §2 refresh gate):
 pass. Do **not** offer rule **6** Before-the-first-write or pipeline-depth
 modals. §8 **approve and save** (or an explicit schema-ship approval) is the
 sole consent for worktree create/attach, `commit-push-pr`, inline `pr-review`,
-and agent `approve-merge-pr` / merge for **these named paths**.
+agent `approve-merge-pr`, and merge for **these named paths** — **inspect still
+runs before GitHub mutation** per rule **6** § *Merge inspect procedure*.
 
 **Transparent UX (binding):** Do **not** present USER_CHECKPOINTs for
 create-worktree, commit/push/PR depth, start-pr-review, or merge after that
@@ -308,10 +309,17 @@ Squad Leader ledger only.
    user pick loops for clean review. On Must/Should blockers only: open
    **one** recovery USER_CHECKPOINT (fix / defer / abandon ship) — not the
    full cadence restart.
-5. Merge into the default branch using agent `gh pr review --approve` +
-   `gh pr merge` authorized by the §8 save (or schema-ship) consent — treat
-   that prior pick as same-pass `approve-merge-pr` for **this** PR. If merge
-   is blocked (CI, permissions, conflicts), open **one** recovery gate; set
+5. **Auto-advance merge (Checkpoint happy path):** Treat §8 save (or
+   schema-ship) consent as same-pass **`approve-merge-pr`** for **this** PR.
+   Run [rule **6** § *Merge inspect procedure*](.sedea/centers/sedea/rules/6_git-commit-push-gate.mdc)
+   **before** any **`gh pr review --approve`** or **`gh pr merge`** —
+   **auto-advance waives the merge modal, not inspect**. When inspect shows
+   mergeable and approval is not required, run **`gh pr merge`** only —
+   **forbidden** unconditional **`gh pr review --approve`** when inspect shows
+   merge-only is sufficient. When approval is required, **`gh pr review
+   --approve`** then **`gh pr merge`** in the **same act turn**. If merge is
+   blocked (CI, permissions, conflicts, or inspect not mergeable), open **one**
+   recovery USER_CHECKPOINT (retry / defer / abandon ship); set
    `shipStatus: opened` or `failed` and keep `prUrl` / `prNumber`.
 6. Post-merge: MCP `sedea_remove_worktree_folder` then center
    `worktree-cleanup.sh` **only** for Path A–owned `WORKTREE_ROOT`.
