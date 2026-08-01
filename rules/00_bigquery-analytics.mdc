@@ -160,6 +160,20 @@ default to project-wide `roles/bigquery.admin`.
 - Report query file, CSV file, row count (excluding the header), byte size,
   BigQuery job id when available, and any truncation or export caveat.
 
+## Sibling centers (cadence)
+
+Workflow mirrors sibling CE centers:
+
+| Sibling | Pattern this center reuses |
+|---------|----------------------------|
+| **documentation-management** | Folder registry + rclone sync when analytics outputs feed documentation folders |
+| **software-development** | Plan → implement → review → push → merge → reconcile on hosting-repo changes |
+
+## Related
+
+- Sibling cadence references: documentation-management folder configuration;
+  software-development ship chain (**coding-session** → review → merge → reconcile)
+
 ## Safety
 
 - Never print service-account private keys, credential JSON, access tokens, or
