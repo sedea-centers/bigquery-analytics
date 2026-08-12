@@ -13,33 +13,19 @@ designation:
     Configure GCP IAM or service accounts; execute unapproved production
     mutations; rewrite center rules; call mission_control_propose_dispatch_resolution
 inputs:
-  projectId:
+  datasetBindings:
+    type: array
+    required: true
+    description: >-
+      Ordered bindings from Squad Leader §2 — each entry: slug, projectId,
+      datasetId, location, localPath, dataSchemaPath, queriesPath, resultsPath,
+      serviceAccountEmail, gcloudConfigurationName.
+  primaryDatasetSlug:
     type: string
     required: true
-  datasetId:
-    type: string
-    required: true
-  location:
-    type: string
-    required: true
-  localPath:
-    type: string
-    required: true
-  dataSchemaPath:
-    type: string
-    required: true
-  queriesPath:
-    type: string
-    required: true
-  resultsPath:
-    type: string
-    required: true
-  serviceAccountEmail:
-    type: string
-    required: true
-  gcloudConfigurationName:
-    type: string
-    required: true
+    description: >-
+      Slug of the primary binding (first selected). Default save/run paths and
+      ledger identity use this binding's queriesPath and resultsPath.
   inquiry:
     type: string
     required: true
@@ -60,14 +46,22 @@ warmUpRules:
 
 # End-to-end BigQuery query
 
+## Primary binding (binding)
+
+Resolve **`primaryBinding`** = the entry in `inputs.datasetBindings` whose
+`slug` matches `inputs.primaryDatasetSlug`. Use **`primaryBinding.queriesPath`**
+and **`primaryBinding.resultsPath`** for save/run paths and terminal ledger
+identity. All bindings in `inputs.datasetBindings` are in scope for exploration
+and cross-dataset GoogleSQL (`projectId.datasetId.table` fully qualified refs).
+
 ## Orientation
 
 Start by telling the user that they do not need to know the schema or formulate
 perfect SQL. **This child lane owns the full cycle** through CSV export and any
-required hosting-repo ship. When the user approves saving tracked SQL, ship
-through merge runs transparently (worktree/PR not user-facing). The Squad
-Leader receives only a compact terminal summary — keep execution detail on
-this lane.
+required hosting-repo ship across **one or more** configured datasets. When the
+user approves saving tracked SQL, ship through merge runs transparently
+(worktree/PR not user-facing). The Squad Leader receives only a compact terminal
+summary — keep execution detail on this lane.
 
 **Forbidden:** resolving the dispatch; handing unfinished “query intent only”
 back to the Squad Leader for dry-run/execute/ship.
@@ -76,16 +70,23 @@ back to the Squad Leader for dry-run/execute/ship.
 
 ### 1. Verify scope and access
 
-Activate `inputs.gcloudConfigurationName`. Confirm the active account is
-`inputs.serviceAccountEmail`. Run metadata-only access probes against
-`inputs.projectId:inputs.datasetId`. Do not switch projects/datasets silently.
+For each binding in `inputs.datasetBindings`, activate that entry's
+`gcloudConfigurationName` when it differs from the prior binding. Confirm the
+active account is that binding's `serviceAccountEmail`. Run metadata-only access
+probes against each `projectId:datasetId`. Do not switch projects/datasets
+silently. When bindings disagree on SA or gcloud config, stop and report —
+do not proceed without Squad Leader re-selection.
 
 ### 2. Detect schema drift and refresh cache
+
+For **each** binding in `inputs.datasetBindings`, run the drift cycle below
+using that binding's `dataSchemaPath`, `projectId`, and `datasetId`. Label
+recaps with `binding.slug` when multiple datasets are in scope.
 
 Follow center rule `00_bigquery-analytics.mdc` § *Dataset schema cache* and the
 fetch layout from **new-analytics-dataset-configuration** §6.
 
-1. Resolve `inputs.dataSchemaPath` (already required; default shape
+1. Resolve `dataSchemaPath` for the current binding (default shape
    `<localPath>/data-schema`).
 2. Read local `_dataset.json` and inventory `tables/` / `views/` when present.
 3. Fetch remote inventory/schema via metadata-only `bq` (`bq ls`,
@@ -93,25 +94,30 @@ fetch layout from **new-analytics-dataset-configuration** §6.
 4. Diff remote vs local (table/view set, column name/type/mode, view
    definitions when available). Treat missing/empty local cache for a
    non-empty remote dataset as drift.
-5. If **no drift:** set `schemaDriftStatus: in-sync`; continue §3. Prefer the
-   local cache in exploration.
+5. If **no drift:** set per-binding drift status `in-sync`; continue to the
+   next binding or §3 when all bindings are checked. Prefer the local cache in
+   exploration.
 6. If **drift** (or missing cache):
 
 USER_CHECKPOINT — refresh schema now · skip refresh this run · more details.
 
    - On **refresh schema now:** rewrite schema artifacts (overwrite same
-     binding). Set `schemaDriftStatus: refreshed`. Stage ship for §8 (bundle
-     with query edits when tracked).
-   - On **skip:** set `schemaDriftStatus: skipped`; continue §3 with
+     binding). Set per-binding drift status `refreshed`. Stage ship for §8
+     (bundle with query edits when tracked).
+   - On **skip:** set per-binding drift status `skipped`; continue with
      best-available cache/live fallback per center rule; note staleness.
 7. Do **not** open a second hosting worktree solely for schema when
    `inputs.hostingWorktreeHint` already names an active worktree for this pass.
 
+Aggregate `schemaDriftStatus` for the terminal summary: `in-sync` only when
+all bindings are in-sync; `refreshed` when any binding refreshed; `skipped`
+when any skipped and none failed; `failed` when any binding failed.
+
 ### 3. Inventory saved queries
 
-List readable `*.sql` files under `inputs.queriesPath`. For each, show filename
-and a short purpose inferred from leading comments/query shape. Do not execute a
-saved query merely to classify it.
+List readable `*.sql` files under **`primaryBinding.queriesPath`**. For each,
+show filename and a short purpose inferred from leading comments/query shape. Do
+not execute a saved query merely to classify it.
 
 When the user **inspects** a saved query, resolve its **absolute** path under
 `HOSTING_ROOT` (same clickable-path rules as §10) and call MCP
@@ -129,9 +135,11 @@ a new question.
 
 ### 4. List tables and views
 
-Prefer the local schema cache from §2. Use `bq ls` only when the cache is
-insufficient or the user asks for live inventory. Present concise table/view
-names and types. When the list is long, page or group it.
+For **each** binding in `inputs.datasetBindings`, prefer that binding's local
+schema cache from §2. Use `bq ls` only when the cache is insufficient or the
+user asks for live inventory. Present concise table/view names and types **with
+dataset labels** (`slug` or `projectId.datasetId`). When the combined list is
+long, page or group by dataset.
 
 USER_CHECKPOINT — inspect schemas for selected tables, ask what data exists,
 preview a table, search by topic/name, or inspect saved queries.
@@ -178,7 +186,8 @@ Draft:
 - a kebab-case query slug;
 - a one-sentence purpose;
 - parameter/default assumptions;
-- fully qualified table references;
+- fully qualified table references across **all selected datasets**
+  (`projectId.datasetId.table`);
 - bounded date/filter scope where appropriate;
 - deterministic ordering when meaningful;
 - LIMIT policy for the production run.
@@ -195,13 +204,13 @@ consent modals. Worktree and PR mechanics are **agent-internal** — user-facing
 copy must describe the outcome as the query landing in the **primary hosting
 repo**, not as a multi-step git/PR workflow.
 
-Save the approved body as `<queriesPath>/<query-slug>.sql`. Set
-`developerApprovedQuery: true` only after this gate. If the SQL file is
-intentionally local under a gitignored workspace, state that and plan
-`shipStatus: skipped-local` for §11 (no transparent ship). If tracked, run
-§11 after dry-run/execute when those steps complete (or immediately after save
-when the user only asked to store without running — still finish §11 before
-terminal).
+Save the approved body as
+`<primaryBinding.queriesPath>/<query-slug>.sql`. Set `developerApprovedQuery:
+true` only after this gate. If the SQL file is intentionally local under a
+gitignored workspace, state that and plan `shipStatus: skipped-local` for §11
+(no transparent ship). If tracked, run §11 after dry-run/execute when those
+steps complete (or immediately after save when the user only asked to store
+without running — still finish §11 before terminal).
 
 **Relevant Links (binding):** After a successful save, resolve absolute
 `sqlPath` via `sedea_get_hosting_root` (same form as §10) and call MCP
@@ -226,8 +235,9 @@ USER_CHECKPOINT — run query, revise SQL, add/adjust LIMIT or filters, or abort
 ### 10. Execute and export CSV
 
 For a safely sized result, run the exact saved SQL with CSV output. For a large
-result, materialize then `bq extract`. Write only under `inputs.resultsPath` on
-the **main hosting clone** (`HOSTING_ROOT` from MCP `sedea_get_hosting_root`).
+result, materialize then `bq extract`. Write only under
+`primaryBinding.resultsPath` on the **main hosting clone** (`HOSTING_ROOT` from
+MCP `sedea_get_hosting_root`).
 Using a timestamped or approved filename. Never overwrite an existing CSV
 silently. **Forbidden:** writing results into `WORKTREE_ROOT` or copying CSVs
 into a hosting worktree to make relative links resolve.
@@ -240,7 +250,8 @@ mounted, repo-relative paths open under the worktree — not under
 1. Resolve **`HOSTING_ROOT`** via `sedea_get_hosting_root` before presenting any
    openable CSV (or SQL) path.
 2. Set **`csvPath`** to the **absolute** path:
-   `HOSTING_ROOT` + `/` + repo-relative results file under `inputs.resultsPath`.
+   `HOSTING_ROOT` + `/` + repo-relative results file under
+   `primaryBinding.resultsPath`.
 3. Prefer the same absolute form for **`sqlPath`** when linking for
    open-in-editor.
 4. **Forbidden** in `displayMarkdown`, chat, and other clickable surfaces: bare
@@ -348,8 +359,10 @@ Call MCP `mission_control_send_agent_result` with `status`, `summary`,
 
 | Field | Type |
 |-------|------|
-| `projectId` | string |
-| `datasetId` | string |
+| `datasetSlugs` | array of string — all selected binding slugs |
+| `primaryDatasetSlug` | string |
+| `projectId` | string — primary binding |
+| `datasetId` | string — primary binding |
 | `querySlug` | string |
 | `queryPurpose` | string |
 | `sqlPath` | string — absolute under `HOSTING_ROOT` when used as an openable link |

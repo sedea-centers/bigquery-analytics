@@ -11,7 +11,7 @@ alwaysApply: false
 ## Objectives
 
 1. Reassure the user that a complete query specification is not required.
-2. Resolve a configured dataset and its saved-query/result directories on the
+2. Resolve configured dataset(s) and their saved-query/result directories on the
    Squad Leader lane.
 3. Spawn an end-to-end query child that owns schema-cache alignment, exploration,
    SQL authoring, dry-run, execution, CSV export, and hosting-repo ship when
@@ -41,24 +41,34 @@ A spawned child will explore the configured dataset with them and run the full
 query cycle. Collect what decision or question the output should support; accept
 "show me what is available" as a valid brief.
 
-### 2. Resolve configured dataset
+### 2. Resolve configured dataset(s)
 
 - **Type:** Branching logic
-- **Intent:** Select one binding from `.sedea/bigquery-analytics.yaml`.
-- **Inputs:** Registry and optional dataset name from the opening message.
-- **Expected output:** Full dataset binding and local paths (`projectId`,
-  `datasetId`, `location`, `localPath`, `queriesPath`, `resultsPath`,
-  `dataSchemaPath`, service-account / gcloud configuration).
-- **Next-step resolution:** One unambiguous binding → §3; multiple/none →
-  USER_CHECKPOINT.
+- **Intent:** Select one or more bindings from `.sedea/bigquery-analytics.yaml` for
+  this query cycle.
+- **Inputs:** Registry and optional dataset slug(s) from the opening message.
+- **Expected output:** Ordered `datasetBindings[]` — each entry: `slug`,
+  `projectId`, `datasetId`, `location`, `localPath`, `queriesPath`,
+  `resultsPath`, `dataSchemaPath`, `serviceAccountEmail`,
+  `gcloudConfigurationName`. **Primary binding** = first selected entry
+  (default save/run paths and ledger identity).
+- **Next-step resolution:** One or more unambiguous bindings → §3; none
+  configured → USER_CHECKPOINT.
 
-USER_CHECKPOINT — choose configured dataset, start dataset configuration in a
-new dispatch, refresh, or abort.
+USER_CHECKPOINT — choose one or more configured datasets (`allowMultiple: true`),
+start dataset configuration in a new dispatch, refresh registry, or abort.
 
-Verify service-account access with a metadata-only `bq` command.
-**Forbidden on the Squad Leader after §2:** schema-drift refresh, query
-authoring, dry-run/execute, CSV export, or hosting-repo ship for this query
-cycle — those belong on the §3 child.
+- Present every registry entry with slug + `projectId.datasetId`.
+- **Require ≥1 selection** before §3.
+- When selections share the same `gcloudConfigurationName` and
+  `serviceAccountEmail`, activate once; when they differ, stop and ask the user
+  to narrow to a compatible set (same project/SA preferred) or run separate
+  query children.
+- Verify service-account access with a metadata-only `bq` command for **each**
+  selected binding.
+- **Forbidden on the Squad Leader after §2:** schema-drift refresh, query
+  authoring, dry-run/execute, CSV export, or hosting-repo ship for this query
+  cycle — those belong on the §3 child.
 
 ### 3. Spawn end-to-end query agent
 
@@ -71,11 +81,14 @@ cycle — those belong on the §3 child.
 - **Target role:** End-to-end query agent
 - **Assigned skill:**
   `missions/run-analytics-queries/skills/data-explorer/SKILL.md`
-- **Inputs:** `projectId`, `datasetId`, `location`, `localPath`,
+- **Inputs:** `datasetBindings` (array, required — full binding per §2);
+  `primaryDatasetSlug` (string, required — first selected slug); `inquiry`
+  (required); optional `hostingWorktreeHint` / open-PR hint when this dispatch
+  already has an in-flight hosting worktree for tracked analytics files. Each
+  binding entry carries `projectId`, `datasetId`, `location`, `localPath`,
   `dataSchemaPath`, `queriesPath`, `resultsPath`, `serviceAccountEmail`,
-  `gcloudConfigurationName`, `inquiry`; optional `hostingWorktreeHint` /
-  open-PR hint when this dispatch already has an in-flight hosting worktree for
-  tracked analytics files.
+  `gcloudConfigurationName`. Save/run paths default to the **primary**
+  binding's `queriesPath` / `resultsPath`.
 - **Expected output:** Terminal `mission_control_send_agent_result` with compact
   ledger fields per the skill **Completion (spawned)** — including
   `schemaDriftStatus`, `schemaShipStatus`, `shipStatus`, paths, and row/job
@@ -88,7 +101,8 @@ the child fails or abandons.
 
 **Procedure**
 
-1. Compile spawn `inputs` from §2 binding + §1 `inquiry`.
+1. Compile spawn `inputs` from §2 `datasetBindings[]` + §1 `inquiry`; set
+   `primaryDatasetSlug` to the first binding's `slug`.
 2. Set `name` / `description` to the inquiry topic (not a generic placeholder).
 3. **Dispatch title (binding):** Call MCP
    `mission_control_update_dispatch_display` with non-empty `dispatchTitle`
