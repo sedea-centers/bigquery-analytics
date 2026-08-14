@@ -180,7 +180,8 @@ Workflow mirrors sibling CE centers:
   refresh tokens.
 - Prefer the local **Dataset schema cache** before live schema exploration;
   preview live metadata only when the cache is missing or explicitly refreshed.
-- Confirm estimated bytes (`--dry_run`) before a potentially expensive query.
+- Confirm estimated bytes and approximate on-demand cost (`--dry_run`; derive USD
+  from `totalBytesProcessed`) before a potentially expensive query.
 - Do not mutate source tables unless the user explicitly requests and approves
   a write query.
 - All tracked hosting-repo edits use the Sedea worktree/PR flow.
