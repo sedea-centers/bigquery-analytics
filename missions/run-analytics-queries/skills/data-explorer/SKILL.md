@@ -161,8 +161,9 @@ another schema, or return to table list.
 ### 6. Preview data safely
 
 Offer a bounded preview; default `LIMIT 10`. Use fully qualified identifiers and
-Standard SQL. Before a preview that may scan substantial data, run a dry-run and
-show estimated bytes.
+Standard SQL. Before a preview that may scan substantial data, run a dry-run per
+§9 **Parse and present** and show estimated bytes and approximate USD cost in
+the recap before the checkpoint.
 
 Never expose obviously sensitive columns unnecessarily. If sensitive data may
 be present, prefer a column-limited preview and ask before displaying values.
@@ -227,10 +228,27 @@ Squad Leader registering child artifacts (this lane owns the call).
 
 ### 9. Cost/safety preflight (dry-run)
 
-Run `bq query --use_legacy_sql=false --dry_run` against the **exact** saved
-file. Do not run mutations unless explicitly requested and approved.
+Run `bq query --use_legacy_sql=false --dry_run --format=prettyjson` against the
+**exact** saved file (or the same flags for inline SQL during §6 preview). Do
+not run mutations unless explicitly requested and approved.
+
+**Parse and present (binding):** From the JSON job statistics (or the human
+dry-run line when JSON is unavailable):
+
+- `statistics.query.totalBytesProcessed` — show as B / KB / MB / GB / TiB
+- `statistics.query.cacheHit` when present — note that cached results may bill
+  **$0**
+- **Estimated on-demand cost (USD):** `(totalBytesProcessed / 2^40) * 6.25`
+  rounded to sensible precision; label as **approximate** and state that actual
+  billing depends on BigQuery edition, reservations/slots, free tier, and whether
+  bytes are billed
+
+**Forbidden:** inventing a `bq` cost-estimate flag; running a full query without
+showing dry-run bytes + approximate cost at this gate.
 
 USER_CHECKPOINT — run query, revise SQL, add/adjust LIMIT or filters, or abort.
+
+Recap must include bytes + approximate USD before the modal.
 
 ### 10. Execute and export CSV
 
