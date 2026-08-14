@@ -52,14 +52,28 @@ query cycle. Collect what decision or question the output should support; accept
   `resultsPath`, `dataSchemaPath`, `serviceAccountEmail`,
   `gcloudConfigurationName`. **Primary binding** = first selected entry
   (default save/run paths and ledger identity).
-- **Next-step resolution:** One or more unambiguous bindings → §3; none
-  configured → USER_CHECKPOINT.
+- **Next-step resolution:**
+  - **Exactly one** registry entry → auto-select it (no dataset modal); verify
+    access → §3.
+  - **Two or more** entries and slug(s) unambiguous from intake → use those
+    bindings; verify access → §3.
+  - **Two or more** entries and no unambiguous slug(s) → USER_CHECKPOINT below.
+  - **Zero** entries → USER_CHECKPOINT below.
 
 USER_CHECKPOINT — choose one or more configured datasets (`allowMultiple: true`),
 start dataset configuration in a new dispatch, refresh registry, or abort.
 
-- Present every registry entry with slug + `projectId.datasetId`.
-- **Require ≥1 selection** before §3.
+**When to open this gate (binding):**
+
+| Registry count | Leader behavior |
+|----------------|-----------------|
+| **0** | Open gate — offer configure-in-new-dispatch, refresh, abort. |
+| **1** | **Do not** open dataset selection. Auto-select the sole binding; run
+  metadata-only `bq` access probe; on success → §3. Recap the auto-selected
+  slug + `projectId.datasetId` in prose only. |
+| **≥2** | Open gate — present every entry with slug + `projectId.datasetId`;
+  **require ≥1 selection** (`allowMultiple: true`) before §3. |
+
 - When selections share the same `gcloudConfigurationName` and
   `serviceAccountEmail`, activate once; when they differ, stop and ask the user
   to narrow to a compatible set (same project/SA preferred) or run separate
