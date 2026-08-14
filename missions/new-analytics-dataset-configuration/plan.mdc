@@ -26,6 +26,23 @@ alwaysApply: false
 
 ## Protocol
 
+### Checkpoint trust — domain gates vs ship automation (binding)
+
+Under dispatch **`trustLevel: checkpoint`**, USER_CHECKPOINT markers apply only
+to **domain configuration**: intent, prerequisites, dataset selection/create,
+IAM role pick on the **existing** path, and workspace paths.
+
+After the last domain gate for the active path completes, the agent **Acts**
+through §§6–8 and proposes dispatch resolution at §9 **without** technical
+micro-gates — including file writes, worktree setup, commit, push, PR open,
+merge inspect, merge, pull/sync, worktree cleanup, or submodule pin promotion.
+
+**Forbidden after domain gates:** asking whether to write files, commit, push,
+open a PR, merge, or clean up the worktree.
+
+**Exception:** structured choice **only** when a step fails and no safe
+automatic recovery exists (offer retry · abort · More details for option _).
+
 ### 1. Infer intent
 
 - **Type:** Branching logic
@@ -242,7 +259,13 @@ Procedure:
 6. Schema files are **tracked** hosting-repo content (unlike `results/`). They
    land in the same hosting worktree/PR as §7.
 
-USER_CHECKPOINT — confirm `data-schema` path and approve fetch/write.
+**Auto-advance (binding):** After §5 workspace-path confirmation, fetch and
+write schema artifacts automatically into the confirmed `dataSchemaPath`.
+**Forbidden:** a separate USER_CHECKPOINT to re-confirm the schema path or
+approve fetch/write when §5 already locked paths.
+
+USER_CHECKPOINT — schema fetch or write failed: retry · abort · More details
+for option _.
 
 ### 7. Create and promote hosting configuration
 
@@ -250,21 +273,37 @@ USER_CHECKPOINT — confirm `data-schema` path and approve fetch/write.
 - **Intent:** Write all tracked hosting configuration in one worktree/PR.
 - **Inputs:** Registry row, paths (including `dataSchemaPath`), project/dataset
   /IAM details, schema artifacts from §6; prior USER_CHECKPOINT input approvals
-  from §§3–6 (create confirm, workspace paths, schema path, existing-path IAM
-  when applicable).
-- **Expected output:** Opened hosting-repo PR; after merge, cleaned worktree.
+  from §§3–5 (create confirm, workspace paths, existing-path IAM when
+  applicable).
+- **Expected output:** Merged hosting-repo PR; cleaned worktree.
 - **Next-step resolution:** After merge/cleanup → §8.
 
-**Input approval = ship consent (binding):** Completing the input gates in
-§§3–6 (and existing-path §4 when used) authorizes this pass to: create/attach
-the hosting worktree, write tracked files, and run **`commit-push-pr`** without
-a further USER_CHECKPOINT. The PR is the **vehicle** to land configuration in
-the primary hosting repo — **not** a separate approval gate.
+**Input approval = ship consent (binding):** Completing the domain input gates
+in §§3–5 (and existing-path §4 when used) authorizes this pass to run the full
+automated ship chain below **without** further USER_CHECKPOINT. The PR is the
+**vehicle** to land configuration in the primary hosting repo — **not** a
+separate approval gate.
 
-**Forbidden under USER_CHECKPOINT on this step:** approve hosting diff; choose
-git pipeline depth (`commit-only` / `commit-push` / `commit-push-pr`); approve
-or “accept” the PR content; start a PR-review approval cycle as a blocker before
-open.
+**End-to-end ship delegation (binding):** Domain input through §5 (and §4
+existing-path IAM when applicable) authorizes this full automated chain for the
+pass:
+
+1. Hosting-repo worktree create/attach
+2. Tracked writes (`queries/`, `results/`, `data-schema/`, `.gitignore`,
+   `.sedea/bigquery-analytics.yaml`)
+3. §6 schema artifacts present under `dataSchemaPath`
+4. **`commit-push-pr`**
+5. Rule **6** § *Merge inspect procedure* on the open PR
+6. **`gh pr review --approve`** + **`gh pr merge`** (or merge-only per inspect)
+   when checks and org policy permit
+7. Post-merge detach/remove **this pass's** worktree (Path A)
+8. Continue to §8 verify
+
+**Forbidden after domain gates:** external-wait merge modals; defer-merge as
+default; PR-review cycles as blockers before merge unless inspect/policy
+requires human review; asking the user to merge on GitHub when agent merge is
+permitted; approve hosting diff; choose git pipeline depth (`commit-only` /
+`commit-push` / `commit-push-pr`); approve or “accept” the PR content.
 
 Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 
@@ -276,13 +315,13 @@ Run the Sedea hosting-repo worktree setup/attach procedure. In that worktree:
 5. Create/update `.sedea/bigquery-analytics.yaml` using the rule-00 schema
    (include optional `dataSchemaPath`; default `<localPath>/data-schema`).
 6. Never write the credential JSON into the worktree.
-7. Commit, push, and open the PR (`commit-push-pr`) automatically for this pass.
-8. After PR **merge**, detach and clean only this mission's worktree.
+7. Commit, push, open the PR, run merge inspect, and merge when permitted —
+   **automatically** for this pass.
+8. After PR **merge**, detach and clean only this mission's worktree —
+   **automatically**.
 
-After the PR exists, open **#external-wait** structured choice for **merge
-resume only** (e.g. check PR status · merged — continue cleanup · defer) —
-**not** a USER_CHECKPOINT to approve the PR. User merges on GitHub (or an
-explicit same-turn approve+merge pick if platform policy requires it).
+USER_CHECKPOINT — ship step failed and cannot auto-recover: retry · abort ·
+More details for option _.
 
 ### 8. Verify binding
 
@@ -308,10 +347,15 @@ hosting workspace and re-promote as needed.
 
 - **Type:** Finish/stop logic
 - **Intent:** Close dataset configuration.
-- **Inputs:** Verification result.
+- **Inputs:** Verification result from §8.
 - **Expected output:** Squad Leader resolution proposal.
 - **Next-step resolution:** Terminal.
 
-USER_CHECKPOINT — approve dispatch resolution.
+**Auto-advance (binding):** When §8 passes (or accepted partial), the Squad
+Leader **immediately** calls `mission_control_propose_dispatch_resolution`
+with `resolved` or `partial` and a short recap — **no** USER_CHECKPOINT before
+the proposal. The resolution card (Accept / Continue) is the developer
+confirmation surface.
 
-The Squad Leader calls `mission_control_propose_dispatch_resolution`.
+USER_CHECKPOINT — only when §8 fails and the agent cannot verify the binding:
+retry verify · abort · More details for option _.
