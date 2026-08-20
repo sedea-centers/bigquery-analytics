@@ -15,7 +15,8 @@ alwaysApply: false
 2. Offer an existing or new GCP project and service account.
 3. Store service-account credentials locally with restrictive permissions.
 4. Configure an isolated gcloud configuration for routine service-account use,
-   avoiding repeated user-login/token friction.
+   avoiding repeated user-login/token friction, **without mutating the user's
+   default gcloud configuration or global active account**.
 5. Grant the IAM baseline required by dataset configuration and query missions.
 6. Return a reusable non-secret configuration summary.
 
@@ -128,6 +129,11 @@ taken) before `gcloud projects create`. The service-account id must be 6–30
 characters. Default credential path:
 `~/.config/gcloud/<hosting-repo-basename>-sedea-bigquery.json`.
 
+The child skill creates the isolated configuration with `configurations create`,
+populates it via `gcloud --configuration=<name> …`, and uses `--account` on
+user-principal setup commands — **forbidden** `gcloud config set account` and
+**forbidden** `gcloud config configurations activate` in agent shell.
+
 After spawn, open an external-wait modal naming **Check configuration status**,
 **Retry configuration**, **Abort**, and **More details for option _**. Do not
 advance until the child result arrives.
@@ -141,8 +147,11 @@ advance until the child result arrives.
   without exposing credentials.
 - **Next-step resolution:** Pass/accepted partial → §7.
 
-Routine commands must use the isolated gcloud configuration and activated
-service account. Do not ask for or print access/refresh tokens.
+Routine commands must use the isolated gcloud configuration via
+`gcloud --configuration=<gcloudConfigurationName> …` or scoped
+`CLOUDSDK_ACTIVE_CONFIG_NAME=<gcloudConfigurationName>` — **forbidden**
+`gcloud config configurations activate` and **forbidden** `gcloud config set
+account`. Do not ask for or print access/refresh tokens.
 
 ### 7. Resolve dispatch
 

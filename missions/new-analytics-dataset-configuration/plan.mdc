@@ -66,7 +66,11 @@ USER_CHECKPOINT — confirm dataset configuration intent.
   isolated gcloud configuration, and working `bq`.
 - **Next-step resolution:** Ready → §3; missing → USER_CHECKPOINT.
 
-Run `gcloud auth list`, `bq version`, and `bq ls --project_id=<project>`.
+Run verification using the registry `gcloudConfiguration` profile via
+`gcloud --configuration=<profile> …` or scoped
+`CLOUDSDK_ACTIVE_CONFIG_NAME=<profile>`. User-principal checks (if any) use
+`--account=<setupAuthorityEmail>` only. **Forbidden:** `gcloud config set
+account`; **forbidden** `gcloud config configurations activate` in agent shell.
 Never display credential material.
 
 USER_CHECKPOINT — start Required Tools Installation in a new dispatch, provide
