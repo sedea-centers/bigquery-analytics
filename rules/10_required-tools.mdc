@@ -65,6 +65,10 @@ version < `minVersion`, or if `gcloud components list --filter=state:UpdateAvail
 (or equivalent non-interactive components-update probe) shows pending updates.
 Upgrade after consent: `gcloud components update` (shared SDK; also covers `bq`).
 
+Install/upgrade dry-runs use bare `gcloud version` and `gcloud help` — **no global
+account or configuration switch**. Cross-ref `00_bigquery-analytics.mdc` §
+*Multi-account gcloud* before any agent-shell `gcloud` beyond dry-runs.
+
 ### `bq`
 
 | Field | Value |

@@ -74,10 +74,13 @@ start dataset configuration in a new dispatch, refresh registry, or abort.
 | **≥2** | Open gate — present every entry with slug + `projectId.datasetId`;
   **require ≥1 selection** (`allowMultiple: true`) before §3. |
 
+- Activate each binding's `gcloudConfigurationName` via scoped
+  `CLOUDSDK_ACTIVE_CONFIG_NAME` or `gcloud --configuration=<name> …` before
+  metadata-only `bq` probes; **forbidden** global account or configuration switch.
 - When selections share the same `gcloudConfigurationName` and
-  `serviceAccountEmail`, activate once; when they differ, stop and ask the user
-  to narrow to a compatible set (same project/SA preferred) or run separate
-  query children.
+  `serviceAccountEmail`, reuse one scoped config block; when they differ, stop
+  and ask the user to narrow to a compatible set (same project/SA preferred) or
+  run separate query children.
 - Verify service-account access with a metadata-only `bq` command for **each**
   selected binding.
 - **Forbidden on the Squad Leader after §2:** schema-drift refresh, query

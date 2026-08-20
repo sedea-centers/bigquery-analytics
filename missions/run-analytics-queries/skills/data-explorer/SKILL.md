@@ -70,12 +70,18 @@ back to the Squad Leader for dry-run/execute/ship.
 
 ### 1. Verify scope and access
 
-For each binding in `inputs.datasetBindings`, activate that entry's
-`gcloudConfigurationName` when it differs from the prior binding. Confirm the
-active account is that binding's `serviceAccountEmail`. Run metadata-only access
-probes against each `projectId:datasetId`. Do not switch projects/datasets
-silently. When bindings disagree on SA or gcloud config, stop and report —
-do not proceed without Squad Leader re-selection.
+For each binding in `inputs.datasetBindings`, use that entry's
+`gcloudConfigurationName` via `CLOUDSDK_ACTIVE_CONFIG_NAME=<name>` for the
+current shell block or `gcloud --configuration=<name> …` per command — **not**
+`gcloud config configurations activate`. Confirm the active account is that
+binding's `serviceAccountEmail`. Run metadata-only access probes against each
+`projectId:datasetId`. Do not switch projects/datasets silently. When bindings
+disagree on SA or gcloud config, stop and report — do not proceed without Squad
+Leader re-selection.
+
+**Forbidden:** `gcloud config set account`. When a user-principal `gcloud` call
+is required, use `--account=<email>` only for a user account; otherwise rely on
+the named configuration and service account.
 
 ### 2. Detect schema drift and refresh cache
 

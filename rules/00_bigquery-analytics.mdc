@@ -36,6 +36,29 @@ must never print, commit, or copy those tokens or the private key into chat.
   `gcloud auth activate-service-account --key-file <path> --project <projectId>`.
   This is durable credential configuration, not a pasted token workflow.
 
+## Multi-account gcloud (binding)
+
+Parallel Mission Control dispatches and hosting repos on one machine share one
+local gcloud credential store. Cross-dispatch side effects are forbidden.
+
+| Mechanism | Status |
+|-----------|--------|
+| `gcloud auth login` | **Allowed** — additive; does not remove other accounts |
+| `gcloud config configurations create` | **Allowed** — e.g. `sedea-bigquery-<hosting-basename>` |
+| `gcloud --configuration=<profile> …` | **Required** — isolated-profile commands without switching global active config |
+| `CLOUDSDK_ACTIVE_CONFIG_NAME=<profile>` | **Allowed** — scoped to the current shell block or subprocess only |
+| `gcloud auth activate-service-account` via `--configuration=<profile>` | **Allowed** — routine SA for `bq` |
+| `gcloud … --account=<email>` | **Required** — user-principal agent-shell commands when not using isolated SA config |
+| `CLOUDSDK_AUTH_ACCOUNT=<email>` | **Allowed** — scoped override for a command block |
+| `gcloud config configurations activate` | **Forbidden** — workstation-wide side effect in agent shell |
+| `gcloud config set account <email>` | **Forbidden** — on default or any shared configuration |
+| `gcloud config set project <id>` on default config | **Forbidden** — use `--configuration=<profile>` or `--project` per command |
+
+Resolve `--account` from the active setup-authority email recorded during
+Required Tools Installation. Routine query work uses the registry
+`gcloudConfiguration` profile via `--configuration` or scoped
+`CLOUDSDK_ACTIVE_CONFIG_NAME` — not the global default configuration.
+
 ## Hosting-repo dataset registry
 
 Dataset bindings live at the hosting-repo root:

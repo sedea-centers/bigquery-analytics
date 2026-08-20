@@ -59,6 +59,18 @@ warmUpRules:
 - The lane was spawned by Required Tools Installation.
 - Never print credential JSON, private keys, or access/refresh tokens.
 
+## Multi-account gcloud (binding)
+
+- `gcloud auth login` is **additive** — never revoke or replace other accounts.
+- **Forbidden:** `gcloud config set account <email>` on any configuration.
+- **Forbidden:** `gcloud config configurations activate` in agent shell
+  (workstation-wide side effect).
+- User-principal agent-shell `gcloud` (projects list/create, IAM, keys): append
+  `--account=<setupAuthorityEmail>` or set `CLOUDSDK_AUTH_ACCOUNT` for that block.
+- Isolated profile `inputs.gcloudConfigurationName`: `configurations create` if
+  missing; populate with `gcloud --configuration=<name> …` only — **never** bare
+  `configurations activate`.
+
 ## Steps
 
 ### 1. Bootstrap non-interactive shell
@@ -100,11 +112,12 @@ Creating projects, service accounts, keys, and IAM bindings requires an existing
 authorized principal. Check `gcloud auth list`.
 
 If no active user exists, explain that a **one-time** `gcloud auth login` is
-needed for setup authority. This does not become the routine query credential.
-Open an external-wait modal, ask the user to authenticate in their terminal,
-then re-probe until an active user is present. **Do not** list or create
-projects until authentication succeeds. Routine use later activates the
-service-account key.
+needed for setup authority. This **adds** an account without removing others and
+does not become the routine query credential. Open an external-wait modal, ask
+the user to authenticate in their terminal, then re-probe until an active user
+is present. Record the active user email as **`setupAuthorityEmail`**. **Do not**
+list or create projects until authentication succeeds. Routine use later
+activates the service-account key in the isolated named configuration.
 
 ### 4. Select or create project
 
@@ -116,7 +129,8 @@ existing project.
 USER_CHECKPOINT — **Select existing project** · **Create new project** ·
 **More details for option _** (pre-fill from `projectPreference` when set).
 
-- **Select existing project:** run `gcloud projects list` (or equivalent) and
+- **Select existing project:** run
+  `gcloud --account=<setupAuthorityEmail> projects list` (or equivalent) and
   present accessible project ids in a USER_CHECKPOINT for the user to pick.
   Validate the chosen id; prefer `inputs.existingProjectId` only when it still
   appears in the live list and the user confirms it.
@@ -146,8 +160,9 @@ USER_CHECKPOINT — **Select existing project** · **Create new project** ·
 USER_CHECKPOINT — confirm project create when a new project is requested; or
 pick from the live `gcloud` project list when selecting existing.
 
-Set the selected project for setup commands and enable
-`bigquery.googleapis.com`.
+Set the selected project for setup commands (via `--project=` flags or
+`gcloud --account=<setupAuthorityEmail> --project=<project> …`) and enable
+`bigquery.googleapis.com` with `--account=<setupAuthorityEmail>`.
 
 ### 5. Select or create service account
 
@@ -195,24 +210,28 @@ USER_CHECKPOINT — resolve service-account key policy blocker.
 
 ### 8. Create isolated gcloud configuration
 
-Create or activate `inputs.gcloudConfigurationName`, then:
+Create `inputs.gcloudConfigurationName` if missing, then populate the named
+profile **without** switching the workstation-wide active configuration:
 
 ```text
-gcloud config configurations activate <name>
-gcloud auth activate-service-account <email> --key-file <path> --project <project>
-gcloud config set project <project>
+gcloud config configurations create <name> 2>/dev/null || true
+gcloud --configuration=<name> auth activate-service-account <email> \
+  --key-file <path> --project <project>
+gcloud --configuration=<name> config set project <project>
 ```
 
-This stores durable service-account configuration locally. Google still mints
-short-lived access tokens internally; no human copies or renews them.
+**Forbidden:** `gcloud config configurations activate`; `gcloud config set account`.
+
+This stores durable service-account configuration in the named profile. Google
+still mints short-lived access tokens internally; no human copies or renews them.
 
 ### 9. Verify
 
 Run:
 
-1. `gcloud auth list --filter=status:ACTIVE`
-2. `bq ls --project_id=<project>`
-3. `bq query --use_legacy_sql=false --dry_run "SELECT 1"`
+1. `gcloud --configuration=<name> auth list --filter=status:ACTIVE`
+2. `CLOUDSDK_ACTIVE_CONFIG_NAME=<name> bq ls --project_id=<project>`
+3. `CLOUDSDK_ACTIVE_CONFIG_NAME=<name> bq query --use_legacy_sql=false --dry_run "SELECT 1"`
 
 Parse output without exposing credentials. Record command names, exit codes,
 and the active service-account email.
