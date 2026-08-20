@@ -43,7 +43,7 @@ local gcloud credential store. Cross-dispatch side effects are forbidden.
 
 | Mechanism | Status |
 |-----------|--------|
-| `gcloud auth login` | **Allowed** — additive; does not remove other accounts |
+| `gcloud auth login` | **Allowed** — additive; does not remove other accounts. When a skill needs interactive login, recover via MCP **`mission_control_start_interactive_terminal`** with preset **`gcloud`** (lane waiting mode) — catalog: `.sedea/centers/sedea/docs/interactive-terminal-mcp.md` § **`gcloud`**; **forbidden** agent Shell for the interactive login |
 | `gcloud config configurations create` | **Allowed** — e.g. `sedea-bigquery-<hosting-basename>` |
 | `gcloud --configuration=<profile> …` | **Required** — isolated-profile commands without switching global active config |
 | `CLOUDSDK_ACTIVE_CONFIG_NAME=<profile>` | **Allowed** — scoped to the current shell block or subprocess only |

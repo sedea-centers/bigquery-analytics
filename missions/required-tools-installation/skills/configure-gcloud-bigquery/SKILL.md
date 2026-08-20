@@ -109,15 +109,95 @@ the Console sidebar and organization/project selector are usable.
 ### 3. Establish setup authority
 
 Creating projects, service accounts, keys, and IAM bindings requires an existing
-authorized principal. Check `gcloud auth list`.
+authorized principal. Probe with read-only agent Shell:
+`gcloud auth list --filter=status:ACTIVE --format=value(account)`.
 
-If no active user exists, explain that a **one-time** `gcloud auth login` is
-needed for setup authority. This **adds** an account without removing others and
-does not become the routine query credential. Open an external-wait modal, ask
-the user to authenticate in their terminal, then re-probe until an active user
-is present. Record the active user email as **`setupAuthorityEmail`**. **Do not**
-list or create projects until authentication succeeds. Routine use later
-activates the service-account key in the isolated named configuration.
+#### 3.0 When active user(s) already exist
+
+If the probe returns one or more active accounts:
+
+**USER_CHECKPOINT — setup authority account (binding):** Open structured choice.
+Present the active account email(s) from the probe (no secrets). Explain that
+`gcloud auth login` is **additive** — it adds another Google account without
+removing existing ones (per **Multi-account gcloud** above).
+
+Required mission-specific options (then universal modal trailer):
+
+- **Use existing account** — continue with a listed active account
+- **Add another Google account** — run `gcloud auth login` (§3a–3c)
+- **Still blocked / need help**
+- **Abort**
+
+- On **Use existing account:** when exactly one active account, set
+  **`setupAuthorityEmail`** to that email and continue to §4. When multiple
+  active accounts, open a follow-up structured choice listing each active email;
+  the selected email becomes **`setupAuthorityEmail`**, then continue to §4.
+- On **Add another Google account:** continue to §3a (browser-focus gate), then
+  §3b–3c. After successful login and post-login confirmation, set
+  **`setupAuthorityEmail`** from the re-probe (see §3c).
+
+#### 3a. Browser-focus gate (before login)
+
+Run §3a–3c only when **no** active user exists **or** the user chose
+**Add another Google account**.
+
+Explain that a **one-time** `gcloud auth login` is needed. This **adds** an
+account without removing others and does not become the routine query credential.
+
+**USER_CHECKPOINT — browser focus before login (binding):** Open structured
+choice announcing the lane will start **`gcloud auth login`** in Mission Control's
+integrated terminal. Ask the user to **focus the browser where they are already
+signed in** to the Google account they will use for setup — authorization must
+complete in that browser session.
+
+Required mission-specific options (then universal modal trailer):
+
+- **Run gcloud auth login** — proceed to interactive terminal (waiting mode)
+- **Still blocked / need help**
+- **Abort**
+
+Do **not** call the interactive terminal until the user selects **Run gcloud auth login**.
+
+#### 3b. Interactive terminal — lane waiting mode (binding)
+
+On **Run gcloud auth login**:
+
+1. Call MCP **`mission_control_start_interactive_terminal`** with
+   **`{ "preset": "gcloud" }`**.
+2. **Waiting mode (binding):** The lane enters **waiting** until the host reports
+   terminal / status-card completion. **Forbidden:** fire-and-forget background
+   execution; **forbidden:** a post-login gate on the **same turn** as the MCP call.
+3. End the turn after the MCP call — the developer completes OAuth in the
+   integrated terminal while the lane waits.
+
+**Forbidden:** agent **Shell** for the interactive login; **forbidden** freeform
+`command` when the **`gcloud`** preset exists. Catalog:
+`.sedea/centers/sedea/docs/interactive-terminal-mcp.md` § **`gcloud`**.
+
+#### 3c. Post-login gate (after terminal completion)
+
+When the host resumes the lane after terminal completion:
+
+1. Open an **external-wait / next-step** structured choice before ending the turn:
+   - **Login complete — continue setup**
+   - **Retry gcloud auth login**
+   - **Still blocked / need help**
+   - **Abort**
+   - Universal modal trailer
+2. On **Login complete — continue setup:** re-probe with read-only
+   **`gcloud auth list --filter=status:ACTIVE --format=value(account)`**.
+3. On **Retry gcloud auth login:** return to §3a, then §3b.
+4. If the probe shows no active user after **Login complete — continue setup**,
+   report the mismatch and offer **Retry** — do not list or create projects.
+5. When multiple active accounts after login, open structured choice so the user
+   picks which email is **`setupAuthorityEmail`** for this setup pass.
+
+#### 3d. Record setup authority
+
+Set **`setupAuthorityEmail`** from the user's selection (§3.0) or successful
+login (§3c). **Do not** list or create projects until **`setupAuthorityEmail`**
+is set. Routine use later activates the service-account key in the isolated
+named configuration.
 
 ### 4. Select or create project
 
